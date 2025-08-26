@@ -1,12 +1,12 @@
 # infrastructure-platform-devops
 
-The purpose of this project is to demonstrate key ideas, technologies, methods and principles that a Senoir or Principal DevOps Engineer will be aware of and capable of operating with.
+The purpose of this project is to demonstrate key ideas, technologies, methods and principles that a Senior or Principal DevOps Engineer will be aware of and capable of operating with.
 
-Specifically, it will demonstrate all core aspects of a well developed, performant and feature-rich DevOps and Developer Platform that a conventonal DevOps/SRE/Infrastructuer/Cloud team would have in is remit. Therefore, it will contain functionaity for and examples of CI/CD pipelines, GitOps, IaC, CaC, container runtime, container orchestration, service mesh, monitoring and alerting, FinOps for cloud cose monitoring and optimisation, artifact repository and container repositories. 
+Specifically, it will demonstrate all core aspects of a well developed, performant and feature-rich DevOps and Developer Platform that a conventional DevOps/SRE/Infrastructure/Cloud team would have in is remit. Therefore, it will contain functionality for and examples of CI/CD pipelines, GitOps, IaC, CaC, container runtime, container orchestration, service mesh, monitoring and alerting, FinOps for cloud cost monitoring and optimization, artifact repository and container repositories. 
 
 These capabilities will reflect the underlying principles and objects that that a this team would be responsible for achieving including Developer Experience, Security and System Reliability. 
 
-It will also demonstrate and adhere to general software principles, best practices and objectives including code quality, maintainability, test coverage, planning and collaboration. In doing so it will also demonatrate shared objectives between Application teams and DevOps/Platform teams.
+It will also demonstrate and adhere to general software principles, best practices and objectives including code quality, maintainability, test coverage, planning and collaboration. In doing so it will also demonstrate shared objectives between Application teams and DevOps/Platform teams.
 
 I hope that others including IT students and professionals may find this resource useful for their own learning and development and I would appreciate any feedback.
 
@@ -34,7 +34,7 @@ Within each DevOps/SRE/Platform category the following technologies will be used
 7. Monitoring & Alerting
     * CloudWatch
     * CloudTrail
-    * Graphana and Promethius? (likely)
+    * Grafana and Prometheus? (likely)
     * ELK Stack? (maybe)
     * Datadog? (maybe)
     * Other?
@@ -46,7 +46,7 @@ Within each DevOps/SRE/Platform category the following technologies will be used
 10. Container Repositories
     * ECR
     * Others?
-11. Resource Optimisation and Autoscaling
+11. Resource Optimization and Autoscaling
     * Vertically
     * Horizontally
     * Others?
@@ -55,14 +55,14 @@ Within each DevOps/SRE/Platform category the following technologies will be used
     * Blue-Green - Istio vs. Argo Rollouts
     * Canary - Istio vs. Argo Rollouts
 13. Upgrade Management 
-    * Optimising using Helm Charts
+    * Optimizing using Helm Charts
     * How else?
 14. Testing
     * Unit tests - what tool?
     * Integration tests - what tool?
     * Load tests - what tool?
 15. Developer Platform
-    * Standardised Resource Procurement and Policies
+    * Standardized Resource Procurement and Policies
     * Internal Developer Platform
         * Register for Application, API and Resource Registry
         * Testing Artifacts
