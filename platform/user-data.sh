@@ -83,6 +83,84 @@ EOF
 # Create platform manifests directory
 mkdir -p /home/ec2-user/platform-manifests
 
+# Create plugin installation script
+cat > /home/ec2-user/install-jenkins-plugins.sh << 'EOF'
+#!/bin/bash
+# Jenkins Pipeline Plugin Installation Script
+set -e
+
+echo "🔌 Installing Jenkins Pipeline plugins..."
+
+# List of essential Pipeline plugins
+PLUGINS=(
+    "workflow-job"
+    "workflow-cps"
+    "workflow-cps-global-lib"
+    "workflow-basic-steps"
+    "workflow-durable-task-step"
+    "workflow-step-api"
+    "workflow-api"
+    "workflow-support"
+    "workflow-scm-step"
+    "workflow-multibranch"
+    "workflow-stage-step"
+    "workflow-input-step"
+    "workflow-milestone-step"
+    "workflow-build-step"
+    "workflow-groovy-lib"
+    "workflow-github"
+    "workflow-github-lib"
+    "workflow-stage-tags-metadata"
+    "workflow-model-api"
+    "workflow-declarative-agent-api"
+    "workflow-declarative-extension-points-api"
+    "workflow-aggregator"
+)
+
+# Function to install a plugin
+install_plugin() {
+    local plugin_name=$1
+    local plugin_file="/var/jenkins_home/plugins/${plugin_name}.jpi"
+    local plugin_url="https://updates.jenkins.io/latest/${plugin_name}.hpi"
+    
+    echo "Installing ${plugin_name}..."
+    if curl -L -o "${plugin_file}" "${plugin_url}"; then
+        echo "✅ ${plugin_name} installed successfully"
+    else
+        echo "❌ Failed to install ${plugin_name}"
+        return 1
+    fi
+}
+
+# Install all plugins
+for plugin in "${PLUGINS[@]}"; do
+    install_plugin "${plugin}" || echo "⚠️  Warning: Failed to install ${plugin}"
+done
+
+echo "🎉 Plugin installation complete!"
+echo "📋 Installed plugins:"
+ls -la /var/jenkins_home/plugins/*.jpi | wc -l | xargs echo "Total plugins:"
+EOF
+
+chmod +x /home/ec2-user/install-jenkins-plugins.sh
+cp /home/ec2-user/install-jenkins-plugins.sh /home/ec2-user/platform-manifests/
+
+# Create Jenkins PVC for persistent storage
+cat > /home/ec2-user/platform-manifests/jenkins-pvc.yaml << 'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-pvc
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+EOF
+
 # Create Jenkins deployment
 cat > /home/ec2-user/platform-manifests/jenkins.yaml << 'EOF'
 apiVersion: apps/v1
@@ -126,7 +204,8 @@ spec:
           subPath: kubectl
       volumes:
       - name: jenkins-home
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: jenkins-pvc
       - name: terraform-bin
         hostPath:
           path: /usr/bin/terraform
@@ -265,7 +344,19 @@ kubectl wait --namespace external-secrets-system --for=condition=ready pod --sel
 
 # Install Jenkins
 echo "🏗️ Installing Jenkins..."
+kubectl apply -f /home/ec2-user/platform-manifests/jenkins-pvc.yaml
 kubectl apply -f /home/ec2-user/platform-manifests/jenkins.yaml
+kubectl wait --namespace jenkins --for=condition=ready pod --selector=app=jenkins --timeout=180s
+
+# Pre-install Pipeline plugins
+echo "🔌 Installing Pipeline plugins..."
+# Copy the plugin installation script to the Jenkins container
+kubectl cp /home/ec2-user/install-jenkins-plugins.sh jenkins/$(kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'):/tmp/install-jenkins-plugins.sh
+# Execute the plugin installation script
+kubectl exec -n jenkins deployment/jenkins -- bash /tmp/install-jenkins-plugins.sh
+
+echo "🔄 Restarting Jenkins to load plugins..."
+kubectl rollout restart deployment/jenkins -n jenkins
 kubectl wait --namespace jenkins --for=condition=ready pod --selector=app=jenkins --timeout=180s
 
 # Set up Jenkins port forwarding
