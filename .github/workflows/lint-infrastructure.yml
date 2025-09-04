@@ -1,15 +1,6 @@
 name: Infrastructure Lint and Validation
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - '**/*.tf'
-      - '**/*.tf.json'
-      - '**/*.sh'
-      - '**/*.groovy'
-      - '**/Jenkinsfile'
-      - '**/user-data.sh'
   pull_request:
     branches: [ main, develop ]
     paths:
