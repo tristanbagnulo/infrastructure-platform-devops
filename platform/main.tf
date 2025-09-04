@@ -17,8 +17,8 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
-  # No profile needed - GitHub Actions provides credentials via OIDC
+  region  = var.aws_region
+  profile = "sso-dev-admin" # Use local profile, GitHub Actions will override
 
   default_tags {
     tags = {
@@ -188,7 +188,7 @@ resource "aws_iam_role_policy_attachment" "platform_permissions" {
 }
 
 resource "aws_iam_instance_profile" "platform" {
-  name = "golden-path-platform-profile-v2"
+  name = "golden-path-platform-profile"
   role = aws_iam_role.platform_instance.name
 }
 
