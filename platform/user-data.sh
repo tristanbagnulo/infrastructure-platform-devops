@@ -129,13 +129,13 @@ spec:
         emptyDir: {}
       - name: terraform-bin
         hostPath:
-          path: /usr/local/bin/terraform
+          path: /usr/bin/terraform
       - name: aws-cli
         hostPath:
           path: /usr/local/bin/aws
       - name: jq-bin
         hostPath:
-          path: /usr/local/bin/jq
+          path: /usr/bin/jq
       - name: kubectl-bin
         hostPath:
           path: /usr/local/bin/kubectl
@@ -161,10 +161,74 @@ metadata:
 EOF
 
 # Create External Secrets Operator installation
-cat > /home/ubuntu/platform-manifests/external-secrets.yaml << 'EOF'
-# This will be installed via Helm in the setup script
-# helm repo add external-secrets https://charts.external-secrets.io
-# helm install external-secrets external-secrets/external-secrets -n external-secrets-system --create-namespace
+cat > /home/ec2-user/platform-manifests/external-secrets.yaml << 'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets
+  namespace: external-secrets-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-secrets
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["external-secrets.io"]
+  resources: ["secretstores", "clustersecretstores", "externalsecrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-secrets
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-secrets
+subjects:
+- kind: ServiceAccount
+  name: external-secrets
+  namespace: external-secrets-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-secrets
+  namespace: external-secrets-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: external-secrets
+  template:
+    metadata:
+      labels:
+        app: external-secrets
+    spec:
+      serviceAccountName: external-secrets
+      containers:
+      - name: external-secrets
+        image: external-secrets/external-secrets:v0.9.11
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
 EOF
 
 # Create setup script for the platform admin
@@ -196,14 +260,19 @@ kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.
 
 # Install External Secrets Operator
 echo "🔐 Installing External Secrets Operator..."
-helm repo add external-secrets https://charts.external-secrets.io
-helm repo update
-helm install external-secrets external-secrets/external-secrets -n external-secrets-system --create-namespace
+kubectl apply -f /home/ec2-user/platform-manifests/external-secrets.yaml
+kubectl wait --namespace external-secrets-system --for=condition=ready pod --selector=app=external-secrets --timeout=120s
 
 # Install Jenkins
 echo "🏗️ Installing Jenkins..."
 kubectl apply -f /home/ec2-user/platform-manifests/jenkins.yaml
 kubectl wait --namespace jenkins --for=condition=ready pod --selector=app=jenkins --timeout=180s
+
+# Set up Jenkins port forwarding
+echo "🌐 Setting up Jenkins access..."
+pkill -f "kubectl port-forward.*jenkins" || true
+kubectl port-forward --address 0.0.0.0 -n jenkins svc/jenkins 8081:8080 &
+echo "Jenkins port forwarding started on port 8081"
 
 # Clone the Golden Path repositories (if accessible)
 echo "📦 Setting up workspace..."
@@ -214,19 +283,45 @@ echo "✅ Golden Path Platform setup complete!"
 echo ""
 echo "🎯 Platform Access:"
 echo "  • Kubernetes API: https://$(curl -s ifconfig.me):6443"
-echo "  • Jenkins: http://$(curl -s ifconfig.me):8080"
-echo "  • SSH: ssh -i ~/.ssh/YOUR_KEY.pem ubuntu@$(curl -s ifconfig.me)"
+echo "  • Jenkins: http://$(curl -s ifconfig.me):8081"
+echo "  • SSH: ssh -i ~/.ssh/YOUR_KEY.pem ec2-user@$(curl -s ifconfig.me)"
 echo ""
 echo "🚀 Next steps:"
-echo "  1. Clone your Golden Path repositories to /home/ubuntu/workspace/"
+echo "  1. Clone your Golden Path repositories to /home/ec2-user/workspace/"
 echo "  2. Configure Jenkins with your repositories"
 echo "  3. Test the infrastructure runner with sample applications"
 EOF
 
 chmod +x /home/ec2-user/setup-platform.sh
 
+# Create auto-setup script that runs on boot
+cat > /home/ec2-user/auto-setup.sh << 'EOF'
+#!/bin/bash
+# Auto-setup script that runs after instance is ready
+sleep 30  # Wait for cloud-init to complete
+
+# Check if setup has already been run
+if [ -f /home/ec2-user/.setup-complete ]; then
+    echo "Setup already completed, skipping..."
+    exit 0
+fi
+
+echo "🚀 Starting automatic Golden Path Platform setup..."
+cd /home/ec2-user
+./setup-platform.sh
+
+# Mark setup as complete
+touch /home/ec2-user/.setup-complete
+echo "✅ Automatic setup completed!"
+EOF
+
+chmod +x /home/ec2-user/auto-setup.sh
+
 # Set ownership
 chown -R ec2-user:ec2-user /home/ec2-user/
+
+# Schedule auto-setup to run after boot
+echo "@reboot ec2-user /home/ec2-user/auto-setup.sh >> /home/ec2-user/setup.log 2>&1" | crontab -u ec2-user -
 
 # Configure AWS region for CLI
 mkdir -p /home/ec2-user/.aws

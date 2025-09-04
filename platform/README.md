@@ -1,221 +1,164 @@
-# Golden Path Platform on AWS
+# Golden Path Platform Infrastructure
 
-> Deploy the Golden Path platform itself on AWS using kind instead of EKS - cost-effective and powerful!
+This directory contains the Terraform configuration for deploying the Golden Path platform infrastructure on AWS.
 
-## 🎯 **What This Creates**
+## Overview
 
-A complete Golden Path Developer Platform running on a single EC2 instance:
+The Golden Path platform provides a complete infrastructure-as-code solution that includes:
 
-- **Kind Kubernetes cluster** (instead of expensive EKS)
-- **Jenkins CI/CD** for automated deployments  
-- **Infrastructure runner** to provision AWS resources
-- **All platform components** (ingress, secrets, monitoring)
-- **Real AWS integrations** (S3, RDS, Secrets Manager)
+- **Kind Kubernetes Cluster**: Lightweight Kubernetes for development and testing
+- **Jenkins CI/CD**: Automated deployment pipelines with enhanced logging
+- **NGINX Ingress**: Load balancing and routing
+- **External Secrets Operator**: Secure secret management
+- **AWS Integration**: Full AWS service integration for infrastructure provisioning
 
-## 💰 **Cost: ~$60/month vs $200+/month for EKS**
+## Quick Start
 
-## 🚀 **Quick Deploy**
-
-### **Prerequisites**
+### Prerequisites
 
 1. **AWS CLI configured** with appropriate permissions
-2. **SSH key pair** created in AWS
-3. **Terraform installed** locally
+2. **Terraform installed** (v1.0+)
+3. **SSH key pair** in AWS EC2 (e.g., `golden-path-dev-new`)
+
+### Deploy the Platform
 
 ```bash
-# Create SSH key pair if you don't have one
-aws ec2 create-key-pair --key-name golden-path-platform \
-  --query 'KeyMaterial' --output text > ~/.ssh/golden-path-platform.pem
-chmod 400 ~/.ssh/golden-path-platform.pem
+# Set your key pair name
+export KEY_PAIR_NAME="golden-path-dev-new"
+
+# Deploy the platform
+./deploy.sh
 ```
 
-### **Deploy Platform**
+### Manual Deployment
+
+If you prefer manual control:
 
 ```bash
-cd infrastructure-platform-devops/platform
-
 # Initialize Terraform
 terraform init
 
 # Plan deployment
-terraform plan -var="key_pair_name=golden-path-platform"
+terraform plan \
+    -var="aws_region=us-east-2" \
+    -var="environment=dev" \
+    -var="key_pair_name=golden-path-dev-new"
 
-# Deploy platform
-terraform apply -var="key_pair_name=golden-path-platform"
+# Apply deployment
+terraform apply \
+    -var="aws_region=us-east-2" \
+    -var="environment=dev" \
+    -var="key_pair_name=golden-path-dev-new"
 ```
 
-### **Complete Setup**
+## Platform Access
+
+After deployment, you'll have access to:
+
+- **Jenkins UI**: `http://<public-ip>:8081`
+- **Kubernetes API**: `https://<public-ip>:6443`
+- **SSH Access**: `ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip>`
+
+## Automated Setup
+
+The platform includes automated setup that:
+
+1. **Creates Kind cluster** with proper configuration
+2. **Installs NGINX Ingress** for load balancing
+3. **Deploys External Secrets Operator** for secret management
+4. **Sets up Jenkins** with enhanced pipeline support
+5. **Configures port forwarding** for easy access
+
+### Monitoring Setup Progress
 
 ```bash
-# Get connection info
-PLATFORM_IP=$(terraform output -raw platform_public_ip)
-SSH_COMMAND=$(terraform output -raw ssh_command)
+# Check if setup is complete
+ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip> 'ls -la /home/ec2-user/.setup-complete'
 
-# SSH to platform
-$SSH_COMMAND
+# Monitor setup progress
+ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip> 'tail -f /home/ec2-user/setup.log'
+```
 
-# Wait for base setup to complete
-tail -f /var/log/user-data.log
+## Configuration
 
-# Complete platform setup (creates kind cluster, installs components)
+### Environment Variables
+
+- `AWS_REGION`: AWS region (default: us-east-2)
+- `ENVIRONMENT`: Environment name (default: dev)
+- `KEY_PAIR_NAME`: EC2 key pair name (required)
+
+### Instance Configuration
+
+- **Instance Type**: t3.medium (2 vCPU, 4GB RAM)
+- **Storage**: 20GB GP3 encrypted volume
+- **Security Groups**: Configured for Jenkins (8081), Kubernetes (6443), and SSH (22)
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Jenkins not accessible**: Check if port forwarding is running
+   ```bash
+   ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip> 'ps aux | grep port-forward'
+   ```
+
+2. **Setup incomplete**: Check setup logs
+   ```bash
+   ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip> 'tail -20 /home/ec2-user/setup.log'
+   ```
+
+3. **Kubernetes cluster issues**: Check cluster status
+   ```bash
+   ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip> 'kubectl get nodes'
+   ```
+
+### Manual Setup
+
+If automated setup fails, you can run it manually:
+
+```bash
+ssh -i ~/.ssh/<key-pair>.pem ec2-user@<public-ip>
+cd /home/ec2-user
 ./setup-platform.sh
 ```
 
-## 🎯 **Access Your Platform**
+## Cleanup
 
-After deployment:
-
-- **SSH**: `ssh -i ~/.ssh/golden-path-platform.pem ubuntu@<PLATFORM_IP>`
-- **Kubernetes**: `https://<PLATFORM_IP>:6443`
-- **Jenkins**: `http://<PLATFORM_IP>:8080`
-
-## 🏗️ **Platform Components**
-
-### **Kubernetes Cluster (kind)**
-- **Control plane** with all Kubernetes features
-- **NGINX Ingress** for HTTP/HTTPS routing
-- **External Secrets Operator** for AWS integration
-- **Metrics server** for autoscaling
-
-### **CI/CD (Jenkins)**
-- **Automated pipelines** for app deployment
-- **Infrastructure provisioning** integration
-- **Git webhook** support
-
-### **Infrastructure Runner**
-- **Python script** to convert YAML → Terraform
-- **AWS resource provisioning** (S3, RDS, Secrets)
-- **IRSA role management**
-
-## 🔧 **Using the Platform**
-
-### **1. Deploy an Application**
+To destroy the platform:
 
 ```bash
-# Clone your app template
-git clone <your-golden-path-app-template> my-app
-cd my-app
-
-# Customize infrastructure request
-cat > infra/requests/dev.yaml << EOF
-app: my-app
-env: dev
-namespace: my-app
-
-resources:
-  - type: s3_bucket
-    name: uploads
-    purpose: uploads
-    public_access: false
-    
-  - type: rds_database
-    name: main
-    engine: postgres
-    size: small
-    
-  - type: secret
-    name: app-secrets
-    description: "Application secrets"
-    
-  - type: irsa_role
-    name: my-app
-    s3_buckets: [uploads]
-    rds_databases: [main]
-    secrets: [app-secrets]
-EOF
-
-# Commit and push (triggers Jenkins pipeline)
-git add .
-git commit -m "Deploy my-app"
-git push origin main
+terraform destroy \
+    -var="aws_region=us-east-2" \
+    -var="environment=dev" \
+    -var="key_pair_name=golden-path-dev-new"
 ```
 
-### **2. Manual Infrastructure Testing**
+## Architecture
 
-```bash
-# SSH to platform
-ssh -i ~/.ssh/golden-path-platform.pem ubuntu@<PLATFORM_IP>
-
-# Navigate to runner
-cd /home/ubuntu/workspace/infrastructure-platform-devops/runner
-
-# Generate Terraform for your app
-python3 scripts/render.py \
-  ../../examples/my-app/infra/requests/dev.yaml \
-  $(aws sts get-caller-identity --query Account --output text) \
-  us-east-1 \
-  arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/example \
-  example \
-  my-app.tf.json
-
-# Apply infrastructure
-terraform init
-terraform apply -auto-approve
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AWS EC2 Instance                        │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │   Kind Cluster  │  │     Jenkins     │  │   NGINX     │ │
+│  │   (Kubernetes)  │  │   (CI/CD)       │  │  Ingress    │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+│  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │ External Secrets│  │   AWS CLI       │                  │
+│  │    Operator     │  │   Terraform     │                  │
+│  └─────────────────┘  └─────────────────┘                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 🔐 **Security & Permissions**
+## Security
 
-The platform instance has IAM permissions to:
-- **Create/manage S3 buckets**
-- **Create/manage RDS databases** 
-- **Create/manage Secrets Manager entries**
-- **Create/manage IAM roles** for applications
-- **Read EC2/VPC information**
+- **Encrypted storage**: All EBS volumes are encrypted
+- **IAM roles**: Least privilege access for platform operations
+- **Security groups**: Restricted access to necessary ports only
+- **SSH key authentication**: No password-based access
 
-## 📊 **Monitoring & Logs**
+## Cost Optimization
 
-```bash
-# Platform setup logs
-tail -f /var/log/user-data.log
-
-# Kind cluster status
-kind get clusters
-kubectl get nodes
-
-# Jenkins logs
-kubectl logs -n jenkins deployment/jenkins
-
-# Infrastructure runner logs
-cd /home/ubuntu/workspace/infrastructure-platform-devops/runner
-ls -la *.tf.json  # Generated configurations
-```
-
-## 🔧 **Troubleshooting**
-
-### **Platform Not Starting**
-```bash
-# Check user-data execution
-ssh -i ~/.ssh/your-key.pem ubuntu@<PLATFORM_IP>
-tail -f /var/log/cloud-init-output.log
-```
-
-### **Kind Cluster Issues**
-```bash
-# Recreate cluster
-kind delete cluster --name golden-path
-./setup-platform.sh
-```
-
-### **Jenkins Not Accessible**
-```bash
-# Check Jenkins pod
-kubectl get pods -n jenkins
-kubectl logs -n jenkins deployment/jenkins
-```
-
-## 🎯 **Perfect For**
-
-- **Interview demonstrations** 
-- **Development environments**
-- **Small team platforms**
-- **Proof of concepts**
-- **Learning Kubernetes + AWS**
-
-## 🚀 **Next Steps**
-
-1. **Configure Jenkins** with your Git repositories
-2. **Set up webhooks** for automated deployments  
-3. **Add monitoring** (Prometheus, Grafana)
-4. **Customize** for your specific needs
-
-Your Golden Path platform is now running on AWS with real cloud integrations! 🌟
+- **t3.medium instance**: Cost-effective for development workloads
+- **Kind cluster**: No EKS costs, runs on single instance
+- **GP3 storage**: Optimized for cost and performance
+- **Auto-shutdown**: Can be stopped when not in use
