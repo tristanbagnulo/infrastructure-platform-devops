@@ -89,56 +89,36 @@ cat > /home/ec2-user/install-jenkins-plugins.sh << 'EOF'
 # Jenkins Pipeline Plugin Installation Script
 set -e
 
-echo "🔌 Installing Jenkins Pipeline plugins..."
+echo "Installing Jenkins Pipeline plugins..."
 
-# List of essential Pipeline plugins
-PLUGINS=(
-    "workflow-job"
-    "workflow-cps"
-    "workflow-cps-global-lib"
-    "workflow-basic-steps"
-    "workflow-durable-task-step"
-    "workflow-step-api"
-    "workflow-api"
-    "workflow-support"
-    "workflow-scm-step"
-    "workflow-multibranch"
-    "workflow-stage-step"
-    "workflow-input-step"
-    "workflow-milestone-step"
-    "workflow-build-step"
-    "workflow-groovy-lib"
-    "workflow-github"
-    "workflow-github-lib"
-    "workflow-stage-tags-metadata"
-    "workflow-model-api"
-    "workflow-declarative-agent-api"
-    "workflow-declarative-extension-points-api"
-    "workflow-aggregator"
-)
+# Installing essential Pipeline and GitOps plugins
 
 # Function to install a plugin
 install_plugin() {
     local plugin_name=$1
-    local plugin_file="/var/jenkins_home/plugins/${plugin_name}.jpi"
-    local plugin_url="https://updates.jenkins.io/latest/${plugin_name}.hpi"
+    local plugin_file="/var/jenkins_home/plugins/$${plugin_name}.jpi"
+    local plugin_url="https://updates.jenkins.io/latest/$${plugin_name}.hpi"
     
-    echo "Installing ${plugin_name}..."
-    if curl -L -o "${plugin_file}" "${plugin_url}"; then
-        echo "✅ ${plugin_name} installed successfully"
+    echo "Installing $${plugin_name}..."
+    if curl -L -o "$${plugin_file}" "$${plugin_url}"; then
+        echo "Successfully installed $${plugin_name}"
     else
-        echo "❌ Failed to install ${plugin_name}"
+        echo "Failed to install $${plugin_name}"
         return 1
     fi
 }
 
-# Install all plugins
-for plugin in "${PLUGINS[@]}"; do
-    install_plugin "${plugin}" || echo "⚠️  Warning: Failed to install ${plugin}"
-done
+# Install essential plugins only (to stay under 16KB limit)
+install_plugin "workflow-aggregator" || echo "Warning: Failed to install workflow-aggregator"
+install_plugin "git" || echo "Warning: Failed to install git"
+install_plugin "git-client" || echo "Warning: Failed to install git-client"
+install_plugin "scm-api" || echo "Warning: Failed to install scm-api"
+install_plugin "credentials-binding" || echo "Warning: Failed to install credentials-binding"
+install_plugin "github" || echo "Warning: Failed to install github"
+install_plugin "pipeline-utility-steps" || echo "Warning: Failed to install pipeline-utility-steps"
 
-echo "🎉 Plugin installation complete!"
-echo "📋 Installed plugins:"
+echo "Plugin installation complete!"
+echo "Installed plugins:"
 ls -la /var/jenkins_home/plugins/*.jpi | wc -l | xargs echo "Total plugins:"
 EOF
 
