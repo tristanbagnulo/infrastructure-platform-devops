@@ -1,6 +1,6 @@
 output "platform_public_ip" {
   description = "Public IP address of the Golden Path platform (Elastic IP)"
-  value       = aws_eip.platform.public_ip
+  value       = data.aws_eip.platform.public_ip
 }
 
 output "platform_private_ip" {
@@ -10,17 +10,17 @@ output "platform_private_ip" {
 
 output "ssh_command" {
   description = "SSH command to connect to the platform"
-  value       = "ssh -i ~/.ssh/${var.key_pair_name}.pem ubuntu@${aws_eip.platform.public_ip}"
+  value       = "ssh -i ~/.ssh/${var.key_pair_name}.pem ubuntu@${data.aws_eip.platform.public_ip}"
 }
 
 output "kubernetes_endpoint" {
   description = "Kubernetes API endpoint (after kind cluster is created)"
-  value       = "https://${aws_eip.platform.public_ip}:6443"
+  value       = "https://${data.aws_eip.platform.public_ip}:6443"
 }
 
 output "jenkins_url" {
   description = "Jenkins URL (after setup)"
-  value       = "http://${aws_eip.platform.public_ip}:8081"
+  value       = "http://${data.aws_eip.platform.public_ip}:8081"
 }
 
 output "platform_instance_id" {
@@ -35,10 +35,10 @@ output "setup_instructions" {
     2. Wait for setup to complete: tail -f /var/log/cloud-init-output.log
     3. Create kind cluster: kind create cluster --name golden-path --config /home/ubuntu/kind-config.yaml
     4. Install platform components: kubectl apply -f /home/ubuntu/platform-manifests/
-    5. Access Jenkins: http://${aws_eip.platform.public_ip}:8081
+    5. Access Jenkins: http://${data.aws_eip.platform.public_ip}:8081
   EOT
 }
 
 locals {
-  ssh_command = "ssh -i ~/.ssh/${var.key_pair_name}.pem ubuntu@${aws_eip.platform.public_ip}"
+  ssh_command = "ssh -i ~/.ssh/${var.key_pair_name}.pem ubuntu@${data.aws_eip.platform.public_ip}"
 }

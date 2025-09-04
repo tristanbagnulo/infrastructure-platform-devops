@@ -199,13 +199,11 @@ locals {
   }))
 }
 
-# Elastic IP for persistent IP address
-resource "aws_eip" "platform" {
-  domain = "vpc"
-
-  tags = {
-    Name = "golden-path-platform-eip"
-    Type = "platform-cluster"
+# Use existing Elastic IP instead of creating new one
+data "aws_eip" "platform" {
+  filter {
+    name   = "allocation-id"
+    values = ["eipalloc-0d609be8a15169711"]
   }
 }
 
@@ -236,7 +234,7 @@ resource "aws_instance" "platform" {
 # Associate Elastic IP with the instance
 resource "aws_eip_association" "platform" {
   instance_id   = aws_instance.platform.id
-  allocation_id = aws_eip.platform.id
+  allocation_id = data.aws_eip.platform.id
 }
 
 data "aws_ami" "amazon_linux" {
