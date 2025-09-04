@@ -5,16 +5,13 @@ on:
     branches: [ main, develop ]
     paths:
       - 'platform/**'
-      - 'modules/**'
-      - 'governance/**'
-      - 'Jenkinsfile'
+      - 'modules/*on       - 'Jenkinsfile'
       - 'infra/requests/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'platform/**'
       - 'modules/**'
-      - 'governance/**'
       - 'Jenkinsfile'
       - 'infra/requests/**'
   workflow_dispatch:
@@ -53,6 +50,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install ShellCheck
+        run: |
+          echo "🔍 Installing ShellCheck..."
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
 
       - name: Run infrastructure linting
         run: |

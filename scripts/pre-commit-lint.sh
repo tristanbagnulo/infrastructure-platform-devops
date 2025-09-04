@@ -50,7 +50,9 @@ if command -v terraform &> /dev/null; then
         exit 1
     fi
 else
-    print_status "warning" "Terraform not found, skipping format check"
+    print_status "error" "Terraform not found - required for infrastructure linting"
+    echo "Install Terraform: https://developer.hashicorp.com/terraform/downloads"
+    exit 1
 fi
 
 # 2. Terraform Validation
@@ -71,7 +73,9 @@ if command -v terraform &> /dev/null; then
     fi
     cd ..
 else
-    print_status "warning" "Terraform not found, skipping validation"
+    print_status "error" "Terraform not found - required for infrastructure validation"
+    echo "Install Terraform: https://developer.hashicorp.com/terraform/downloads"
+    exit 1
 fi
 
 # 3. Check for Terraform Syntax Issues
@@ -144,8 +148,9 @@ if command -v shellcheck &> /dev/null; then
         fi
     done
 else
-    print_status "warning" "ShellCheck not found, skipping shell script linting"
+    print_status "error" "ShellCheck not found - required for shell script linting"
     echo "Install ShellCheck: brew install shellcheck (macOS) or apt-get install shellcheck (Ubuntu)"
+    exit 1
 fi
 
 # 6. Security Scan

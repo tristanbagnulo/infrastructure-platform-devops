@@ -1,4 +1,4 @@
-t to #!/bin/bash
+#!/bin/bash
 set -e
 
 echo "🔧 Setting up Golden Path Platform..."

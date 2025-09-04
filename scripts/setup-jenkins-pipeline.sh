@@ -67,13 +67,11 @@ EOF
 
 # Create the Pipeline job
 echo "🔧 Creating Pipeline job..."
-curl -X POST \
+if curl -X POST \
   -H "$CRUMB_FIELD: $CRUMB" \
   -H "Content-Type: application/xml" \
   -d @pipeline-config.xml \
-  "$JENKINS_URL/createItem?name=infrastructure-platform-pipeline"
-
-if [ $? -eq 0 ]; then
+  "$JENKINS_URL/createItem?name=infrastructure-platform-pipeline"; then
     echo "✅ Pipeline job created successfully!"
     echo "🌐 Access Jenkins at: $JENKINS_URL"
     echo "📋 Pipeline job: infrastructure-platform-pipeline"
