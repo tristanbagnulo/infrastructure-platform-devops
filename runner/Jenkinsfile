@@ -1,0 +1,151 @@
+pipeline {
+  agent any
+  options { timestamps() }
+
+  parameters {
+    // Where to pull the app's request file from
+    string(name: 'GIT_URL',        defaultValue: '',   description: 'Git URL of the app repo (https or ssh)')
+    string(name: 'GIT_REF',        defaultValue: 'main', description: 'Branch or commit of the app repo')
+    string(name: 'REQUEST_PATH',   defaultValue: 'infra/requests/dev.yaml', description: 'Path to the request YAML in the app repo')
+    // Environment & account details
+    choice(name: 'ENV', choices: ['dev','stage','prod'], description: 'Target environment')
+    string(name: 'ACCOUNT_ID',     defaultValue: '',   description: 'AWS Account ID for the target env')
+    string(name: 'REGION',         defaultValue: 'us-east-2', description: 'AWS region')
+    string(name: 'OIDC_PROVIDER_ARN', defaultValue: '', description: 'EKS OIDC provider ARN for the cluster')
+    string(name: 'OIDC_PROVIDER_URL', defaultValue: '', description: 'EKS OIDC URL (without https://)')
+    // Optional: path inside SSM if you want to override the default prefix
+    string(name: 'SSM_PREFIX',     defaultValue: '/apps', description: 'Base prefix for SSM parameters (optional)')
+  }
+
+  environment {
+    // Folder we use for the app repo (request lives here)
+    APP_REPO_DIR = 'app-request'
+    RUNNER_DIR   = 'runner'
+  }
+
+  stages {
+    stage('Checkout runner (this repo)') {
+      steps {
+        checkout scm
+        dir(env.RUNNER_DIR) {
+          sh 'ls -la'
+        }
+      }
+    }
+
+    stage('Fetch app request') {
+      steps {
+        script {
+          if (!params.GIT_URL?.trim()) {
+            error "GIT_URL is required (the app repo that contains ${params.REQUEST_PATH})"
+          }
+        }
+        sh """
+          rm -rf ${APP_REPO_DIR}
+          git clone --depth 1 --branch ${GIT_REF} ${GIT_URL} ${APP_REPO_DIR}
+          test -f ${APP_REPO_DIR}/${REQUEST_PATH}
+        """
+      }
+    }
+
+    stage('Validate & Render TF JSON') {
+      steps {
+        dir(env.RUNNER_DIR) {
+          sh """
+            python3 -V
+            # Install minimal deps (jsonschema & pyyaml); if your agents already have them, skip this.
+            python3 -m pip install --user --quiet jsonschema pyyaml
+
+            # Validate request against JSON Schema
+            python3 - <<'PY'
+import json, sys, yaml
+from jsonschema import validate, Draft202012Validator
+from pathlib import Path
+schema = json.loads(Path('schema/request.schema.json').read_text())
+data   = yaml.safe_load(Path('../${APP_REPO_DIR}/${REQUEST_PATH}').read_text())
+errors = sorted(Draft202012Validator(schema).iter_errors(data), key=lambda e: e.path)
+if errors:
+    for e in errors:
+        print('SCHEMA ERROR:', '/'.join([str(p) for p in e.path]), '-', e.message)
+    sys.exit(1)
+print('Schema validation OK')
+PY
+
+            # Render generated.tf.json
+            python3 scripts/render.py \
+              ../${APP_REPO_DIR}/${REQUEST_PATH} \
+              ${ACCOUNT_ID} ${REGION} \
+              ${OIDC_PROVIDER_ARN} ${OIDC_PROVIDER_URL} \
+              generated.tf.json
+            echo '--- generated.tf.json ---'
+            cat generated.tf.json
+          """
+        }
+      }
+    }
+
+    stage('Security & Policy checks') {
+      when { expression { return fileExists("${RUNNER_DIR}/policies") } }
+      steps {
+        dir(env.RUNNER_DIR) {
+          sh """
+            echo 'Run Checkov/tfsec/Conftest here if configured...'
+            # Examples (uncomment if tools are on PATH):
+            # checkov -f generated.tf.json --quiet
+            # conftest test --policy policies generated.tf.json
+          """
+        }
+      }
+    }
+
+    stage('Terraform Plan') {
+      steps {
+        dir(env.RUNNER_DIR) {
+          sh """
+            terraform -version
+            terraform init -input=false
+            terraform plan -out=tfplan -input=false -var region=${REGION}
+          """
+        }
+      }
+    }
+
+    stage('Approve Prod Apply') {
+      when { expression { return params.ENV == 'prod' } }
+      steps {
+        input message: 'Apply infrastructure changes to PROD?'
+      }
+    }
+
+    stage('Terraform Apply') {
+      steps {
+        dir(env.RUNNER_DIR) {
+          sh "terraform apply -input=false -auto-approve tfplan"
+        }
+      }
+    }
+
+    stage('Outputs → Console') {
+      steps {
+        dir(env.RUNNER_DIR) {
+          sh """
+            set -e
+            if terraform output -json | jq -er '.irsa_role_arn.value' >/dev/null 2>&1; then
+              IRSA=\$(terraform output -raw irsa_role_arn)
+              echo "IRSA_ROLE_ARN=\$IRSA" | tee irsa_role_arn.env
+            else
+              echo "No irsa_role_arn output found (that's OK if not requested)"
+            fi
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      archiveArtifacts artifacts: "${RUNNER_DIR}/irsa_role_arn.env", allowEmptyArchive: true
+      echo 'Runner completed. App pipeline can fetch IRSA_ROLE_ARN from this artifact or from SSM.'
+    }
+  }
+}
