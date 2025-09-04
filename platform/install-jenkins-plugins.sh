@@ -105,7 +105,7 @@ done
 
 echo "🎉 Plugin installation complete!"
 echo "📋 Installed plugins:"
-ls -la /var/jenkins_home/plugins/*.jpi | wc -l | xargs echo "Total plugins:"
+find /var/jenkins_home/plugins -name "*.jpi" | wc -l | xargs echo "Total plugins:"
 
 echo "🔄 Restarting Jenkins to load plugins..."
 # Note: This script should be run inside the Jenkins container

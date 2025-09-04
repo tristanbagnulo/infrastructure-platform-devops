@@ -80,7 +80,8 @@ echo "🔍 Checking for common Terraform syntax issues..."
 # Check for unescaped variables in user-data.sh
 if [ -f "platform/user-data.sh" ]; then
     # Use a more specific pattern that works consistently across environments
-    if grep -n '\${[A-Za-z_][A-Za-z0-9_]*}' platform/user-data.sh | grep -v '\$\${' | grep -v 'plugin_name'; then
+    # Only check for single $ variables, not $$ variables
+    if grep -n "[^$]\${[A-Za-z_][A-Za-z0-9_]*}" platform/user-data.sh; then
         print_status "error" "Found unescaped Terraform variables in user-data.sh"
         echo "Use \$\${variable} instead of \${variable} in bash scripts"
         exit 1
@@ -109,7 +110,8 @@ if [ -f "Jenkinsfile" ]; then
     # Look for specific problematic patterns in shell commands
     # Use consistent regex patterns that work across environments
     # Only check for actual unescaped variables (not preceded by backslash)
-    if grep -n '[^\\]\${[A-Z_][A-Za-z0-9_]*}' Jenkinsfile | grep -E '(terraform|ssh)'; then
+    # Look for ${VAR} patterns that are not preceded by \ in terraform/ssh commands
+    if grep -n -E "(terraform|ssh).*[^\\\\]\${[A-Z_][A-Za-z0-9_]*}" Jenkinsfile; then
         print_status "error" "Found unescaped variables in shell commands"
         echo "Use \\\$ instead of \$ in shell commands"
         exit 1
@@ -157,7 +159,7 @@ if grep -r "AKIA[0-9A-Z]{16}" . --exclude-dir=.git --exclude-dir=node_modules 2>
 fi
 
 # Check for private keys
-if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.sh" --exclude="*.yml" --exclude="*.md" --exclude="GITOPS.md" 2>/dev/null; then
+if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.sh" --exclude="*.yml" --exclude="*.md" --exclude="GITOPS.md" --exclude="LINTING.md" 2>/dev/null; then
     print_status "error" "Found potential private key in code"
     echo "Remove private keys and use secure credential management"
     exit 1
