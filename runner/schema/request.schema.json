@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Infrastructure Request Schema",
+  "description": "Simple, AWS-focused infrastructure for common application needs",
+  "type": "object",
+  "required": ["app", "env", "namespace", "resources"],
+  "properties": {
+    "app": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Application name"
+    },
+    "env": {
+      "type": "string",
+      "enum": ["dev", "stage", "prod"],
+      "description": "Environment"
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Kubernetes namespace"
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "title": "S3 Bucket",
+            "description": "Object storage for files, uploads, static assets",
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "s3_bucket" },
+              "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+              "purpose": { 
+                "type": "string", 
+                "enum": ["uploads", "static", "backups"],
+                "default": "uploads"
+              },
+              "public_access": { "type": "boolean", "default": false }
+            }
+          },
+          {
+            "title": "RDS Database",
+            "description": "Postgres or MySQL database",
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "rds_database" },
+              "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+              "engine": { "type": "string", "enum": ["postgres", "mysql"], "default": "postgres" },
+              "size": { "type": "string", "enum": ["small", "medium", "large"], "default": "small" }
+            }
+          },
+          {
+            "title": "Secrets Manager",
+            "description": "AWS Secrets Manager for API keys and credentials",
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "secret" },
+              "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+              "description": { "type": "string", "default": "Application secrets" }
+            }
+          },
+          {
+            "title": "IRSA Role",
+            "description": "IAM role for Kubernetes service account",
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "irsa_role" },
+              "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+              "s3_buckets": { 
+                "type": "array", 
+                "items": { "type": "string" },
+                "description": "S3 bucket names to grant access to"
+              },
+              "rds_databases": { 
+                "type": "array", 
+                "items": { "type": "string" },
+                "description": "RDS database names to grant access to"
+              },
+              "secrets": { 
+                "type": "array", 
+                "items": { "type": "string" },
+                "description": "Secret names to grant access to"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
