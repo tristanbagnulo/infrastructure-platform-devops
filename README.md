@@ -52,11 +52,33 @@ infrastructure-platform-devops/
 
 ## 🚀 **Quick Start**
 
-### **Prerequisites**
+### **Option 1: Containerized Development (Recommended)**
+For a consistent experience across all platforms (Windows, macOS, Linux):
 
+```bash
+# Clone the repository
+git clone https://github.com/your-org/infrastructure-platform-devops.git
+cd infrastructure-platform-devops
+
+# Set up the development environment
+./scripts/dev-setup.sh setup
+
+# Open development shell
+./scripts/dev-setup.sh shell
+```
+
+**Prerequisites**: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+
+### **Option 2: Local Development**
+For developers who prefer local tools:
+
+**Prerequisites**:
 1. **AWS CLI configured** with appropriate permissions
 2. **Terraform installed** (v1.0+)
 3. **SSH key pair** in AWS EC2 (e.g., `golden-path-dev-new`)
+4. **kubectl** >= 1.29.0
+5. **Kind** >= 0.20.0
+6. **Docker** (for Kind)
 
 ### **Deploy the Platform**
 
@@ -163,9 +185,16 @@ This repository works seamlessly with the `golden-path-app-template`:
 
 ## 📖 **Documentation**
 
+### **Development**
+- [Development Guide](docs/development/README.md) - Complete development documentation
+- [Containerized Development](docs/development/containerized-development.md) - Docker-based development environment
+- [Local Development](docs/development/local-development.md) - Local development setup
+- [Contributing Guidelines](docs/development/contributing.md) - How to contribute
+- [Code Quality Standards](docs/development/code-quality.md) - Linting and quality standards
+
+### **Platform & Operations**
 - [Platform Deployment Guide](platform/README.md) - Detailed platform setup
 - [Infrastructure Schema Design](docs/infrastructure-schema-design.md) - Schema documentation
-- [Linting Standards](docs/linting.md) - Code quality standards
 - [Runbooks](docs/runbooks/) - Operational procedures
 
 ## 🧪 **Testing**

@@ -1,0 +1,79 @@
+# Golden Path Infrastructure Platform - Docker Ignore
+# Files and directories to exclude from Docker build context
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+.terraform.lock.hcl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# AWS credentials (should be mounted as volume)
+.aws/
+
+# SSH keys (should be mounted as volume)
+.ssh/
+
+# Local development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Documentation build artifacts
+docs/_build/
+site/
+
+# Test artifacts
+coverage/
+.coverage
+.pytest_cache/
+
+# Backup files
+*.bak
+*.backup
+*.orig
