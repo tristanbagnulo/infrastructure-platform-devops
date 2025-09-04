@@ -187,7 +187,7 @@ locals {
 # Elastic IP for persistent IP address
 resource "aws_eip" "platform" {
   domain = "vpc"
-  
+
   tags = {
     Name = "golden-path-platform-eip"
     Type = "platform-cluster"
