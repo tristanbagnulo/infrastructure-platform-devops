@@ -29,7 +29,7 @@ data "aws_iam_policy_document" "combined" {
   dynamic "statement" {
     for_each = var.grants.s3
     content {
-      actions   = ["s3:PutObject","s3:GetObject","s3:DeleteObject"]
+      actions   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
       resources = ["${statement.value}/*"]
     }
   }
@@ -45,7 +45,7 @@ data "aws_iam_policy_document" "combined" {
   dynamic "statement" {
     for_each = var.grants.sqs
     content {
-      actions   = ["sqs:SendMessage","sqs:ReceiveMessage","sqs:DeleteMessage","sqs:GetQueueAttributes","sqs:ChangeMessageVisibility"]
+      actions   = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
       resources = [statement.value]
     }
   }
@@ -54,7 +54,7 @@ data "aws_iam_policy_document" "combined" {
   dynamic "statement" {
     for_each = var.grants.dynamodb
     content {
-      actions   = ["dynamodb:PutItem","dynamodb:GetItem","dynamodb:DeleteItem","dynamodb:UpdateItem","dynamodb:Query","dynamodb:Scan","dynamodb:BatchWriteItem"]
+      actions   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:DeleteItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan", "dynamodb:BatchWriteItem"]
       resources = [statement.value]
     }
   }
@@ -81,7 +81,7 @@ data "aws_iam_policy_document" "combined" {
   statement {
     actions = [
       "ssm:GetParameter",
-      "ssm:GetParameters", 
+      "ssm:GetParameters",
       "ssm:GetParametersByPath"
     ]
     resources = ["arn:aws:ssm:*:*:parameter/apps/${var.env}/${var.app}/*"]

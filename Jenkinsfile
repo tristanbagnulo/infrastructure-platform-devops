@@ -143,10 +143,10 @@ pipeline {
                         
                         echo "=== TERRAFORM PLAN OUTPUT ==="
                         terraform plan \
-                            -var="aws_region=${AWS_REGION}" \
-                            -var="environment=${ENVIRONMENT}" \
-                            -var="key_pair_name=${KEY_PAIR_NAME}" \
-                            -out=platform-${ENVIRONMENT}.tfplan \
+                            -var="aws_region=\${AWS_REGION}" \
+                            -var="environment=\${ENVIRONMENT}" \
+                            -var="key_pair_name=\${KEY_PAIR_NAME}" \
+                            -out=platform-\${ENVIRONMENT}.tfplan \
                             -detailed-exitcode
                         
                         PLAN_EXIT_CODE=$?
@@ -183,10 +183,10 @@ pipeline {
                 dir(env.TERRAFORM_DIR) {
                     sh '''
                         echo "=== APPLYING TERRAFORM PLAN ==="
-                        echo "Plan file: platform-${ENVIRONMENT}.tfplan"
+                        echo "Plan file: platform-\${ENVIRONMENT}.tfplan"
                         echo "==============================="
                         
-                        terraform apply -auto-approve platform-${ENVIRONMENT}.tfplan
+                        terraform apply -auto-approve platform-\${ENVIRONMENT}.tfplan
                         
                         echo "=== DEPLOYMENT OUTPUTS ==="
                         terraform output -json | jq -r 'to_entries[] | "\\(.key): \\(.value.value)"' || terraform output
@@ -207,9 +207,9 @@ pipeline {
                 dir(env.TERRAFORM_DIR) {
                     sh '''
                         terraform destroy -auto-approve \
-                            -var="aws_region=${AWS_REGION}" \
-                            -var="environment=${ENVIRONMENT}" \
-                            -var="key_pair_name=${KEY_PAIR_NAME}"
+                            -var="aws_region=\${AWS_REGION}" \
+                            -var="environment=\${ENVIRONMENT}" \
+                            -var="key_pair_name=\${KEY_PAIR_NAME}"
                         echo "✅ Platform destroyed successfully!"
                     '''
                 }
@@ -265,7 +265,7 @@ pipeline {
                     // Test Docker
                     sh """
                         echo "=== TESTING DOCKER ==="
-                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/${KEY_PAIR_NAME}.pem ec2-user@${platformIP} \
+                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/\${KEY_PAIR_NAME}.pem ec2-user@\${platformIP} \
                             "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'" || echo "⚠️  Could not connect to verify Docker"
                     """
                 }
@@ -312,7 +312,7 @@ pipeline {
                     
                     echo "🌐 Platform Access Information:"
                     echo "  - Jenkins URL: http://${platformIP}:8081"
-                    echo "  - SSH Command: ssh -i ~/.ssh/${KEY_PAIR_NAME}.pem ec2-user@${platformIP}"
+                    echo "  - SSH Command: ssh -i ~/.ssh/\${KEY_PAIR_NAME}.pem ec2-user@\${platformIP}"
                     echo "  - Environment: ${ENVIRONMENT}"
                     echo "  - Region: ${AWS_REGION}"
                 } catch (Exception e) {

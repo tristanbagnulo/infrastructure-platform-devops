@@ -13,7 +13,7 @@ variable "environment" {
 variable "instance_type" {
   description = "EC2 instance type for the platform"
   type        = string
-  default     = "t3.medium"  # 2 vCPU, 4GB - sufficient for demo workloads
+  default     = "t3.medium" # 2 vCPU, 4GB - sufficient for demo workloads
 }
 
 variable "key_pair_name" {
@@ -24,11 +24,11 @@ variable "key_pair_name" {
 variable "allowed_cidr" {
   description = "CIDR block allowed to access the platform (your IP)"
   type        = string
-  default     = "173.63.251.175/32"  # Your current IP only
+  default     = "173.63.251.175/32" # Your current IP only
 }
 
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to access the platform"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # Restrict this in production
+  default     = ["0.0.0.0/0"] # Restrict this in production
 }

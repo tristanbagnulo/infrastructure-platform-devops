@@ -8,26 +8,26 @@ locals {
     },
     var.tags
   )
-  
+
   bucket_name = "${var.app}-${var.name}-${var.env}"
-  
+
   # Storage class mapping based on access pattern
   storage_class_transitions = var.access_pattern == "frequent" ? {
-    ia_days     = 30
+    ia_days      = 30
     glacier_days = 90
-  } : var.access_pattern == "infrequent" ? {
-    ia_days     = 1  # Immediate IA
+    } : var.access_pattern == "infrequent" ? {
+    ia_days      = 1 # Immediate IA
     glacier_days = 30
-  } : {
-    ia_days     = 1
-    glacier_days = 1  # Immediate Glacier for archive
+    } : {
+    ia_days      = 1
+    glacier_days = 1 # Immediate Glacier for archive
   }
 }
 
 # S3 Bucket
 resource "aws_s3_bucket" "this" {
   bucket        = local.bucket_name
-  force_destroy = var.env == "dev" ? true : false  # Allow force destroy in dev
+  force_destroy = var.env == "dev" ? true : false # Allow force destroy in dev
   tags          = local.common_tags
 }
 
@@ -42,12 +42,12 @@ resource "aws_s3_bucket_versioning" "this" {
 # Server-side encryption (always enabled for security)
 resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
   bucket = aws_s3_bucket.this.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
-    bucket_key_enabled = true  # Reduce KMS costs
+    bucket_key_enabled = true # Reduce KMS costs
   }
 }
 
@@ -116,7 +116,7 @@ resource "aws_s3_bucket_cors_configuration" "this" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = var.purpose == "static_website" ? ["GET"] : ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = ["*"]  # Customize based on your domains
+    allowed_origins = ["*"] # Customize based on your domains
     max_age_seconds = 3000
   }
 }
@@ -158,6 +158,6 @@ resource "aws_s3_bucket_policy" "website" {
 
 # Notification configuration (placeholder for future integration)
 resource "aws_s3_bucket_notification" "this" {
-  count  = 0  # Enable when integrating with SQS/SNS
+  count  = 0 # Enable when integrating with SQS/SNS
   bucket = aws_s3_bucket.this.id
 }

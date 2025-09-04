@@ -5,7 +5,7 @@
 resource "aws_iam_policy" "platform_permission_boundary" {
   name        = "GoldenPathPlatformBoundary"
   description = "Permission boundary for Golden Path platform service accounts"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -22,7 +22,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           "s3:GetObject*",
           "s3:PutObject*",
           "s3:DeleteObject*",
-          
+
           # RDS management within approved patterns  
           "rds:CreateDBInstance",
           "rds:DeleteDBInstance",
@@ -31,7 +31,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           "rds:CreateDBSubnetGroup",
           "rds:DeleteDBSubnetGroup",
           "rds:AddTagsToResource",
-          
+
           # Secrets Manager
           "secretsmanager:CreateSecret",
           "secretsmanager:DeleteSecret",
@@ -40,7 +40,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           "secretsmanager:PutSecretValue",
           "secretsmanager:UpdateSecret",
           "secretsmanager:TagResource",
-          
+
           # SSM Parameter Store
           "ssm:PutParameter",
           "ssm:GetParameter",
@@ -48,7 +48,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           "ssm:DeleteParameter",
           "ssm:DescribeParameters",
           "ssm:AddTagsToResource",
-          
+
           # IAM for IRSA roles (limited)
           "iam:CreateRole",
           "iam:DeleteRole",
@@ -62,7 +62,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           "iam:ListPolicies",
           "iam:TagRole",
           "iam:TagPolicy",
-          
+
           # EC2 for networking (read-only)
           "ec2:DescribeVpcs",
           "ec2:DescribeSubnets",
@@ -73,7 +73,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "aws:RequestedRegion" = ["us-east-2"]  # Restrict to approved regions
+            "aws:RequestedRegion" = ["us-east-2"] # Restrict to approved regions
           }
         }
       },
@@ -119,7 +119,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
           StringLike = {
             "rds:db-instance-class" = [
               "db.r6g.*",
-              "db.r5.*", 
+              "db.r5.*",
               "db.m6i.large",
               "db.m6i.xlarge",
               "db.m6i.2xlarge"
@@ -129,7 +129,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
       }
     ]
   })
-  
+
   tags = {
     ManagedBy = "golden-path-platform"
     Purpose   = "permission-boundary"
@@ -140,7 +140,7 @@ resource "aws_iam_policy" "platform_permission_boundary" {
 resource "aws_iam_policy" "application_permission_boundary" {
   name        = "GoldenPathApplicationBoundary"
   description = "Permission boundary for application IRSA roles"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -195,7 +195,7 @@ resource "aws_iam_policy" "application_permission_boundary" {
         Effect = "Deny"
         NotAction = [
           "s3:GetObject",
-          "s3:PutObject", 
+          "s3:PutObject",
           "s3:DeleteObject",
           "s3:ListBucket",
           "rds-db:connect",
@@ -208,7 +208,7 @@ resource "aws_iam_policy" "application_permission_boundary" {
       }
     ]
   })
-  
+
   tags = {
     ManagedBy = "golden-path-platform"
     Purpose   = "application-boundary"

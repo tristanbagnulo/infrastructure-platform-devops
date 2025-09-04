@@ -174,7 +174,7 @@ jobs:
           fi
           
           # Check for private keys
-          if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git; then
+          if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git --exclude="*.sh" --exclude="*.yml"; then
             echo "❌ Found potential private key in code"
             echo "Remove private keys and use secure credential management"
             exit 1

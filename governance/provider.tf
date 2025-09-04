@@ -9,9 +9,9 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-2"
+  region  = "us-east-2"
   profile = "sso-dev"
-  
+
   default_tags {
     tags = {
       Project     = "golden-path-governance"

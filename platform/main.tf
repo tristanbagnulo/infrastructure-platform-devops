@@ -13,8 +13,8 @@ terraform {
 
 provider "aws" {
   region  = var.aws_region
-  profile = "sso-dev-admin"  # Use the admin SSO profile for full permissions
-  
+  profile = "sso-dev-admin" # Use the admin SSO profile for full permissions
+
   default_tags {
     tags = {
       Project     = "golden-path-platform"
@@ -130,7 +130,7 @@ resource "aws_iam_role" "platform_instance" {
 # Platform needs broad permissions to manage infrastructure for applications
 resource "aws_iam_policy" "platform_permissions" {
   name = "golden-path-platform-permissions"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -198,7 +198,7 @@ resource "aws_instance" "platform" {
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 20  # Minimal space for demo platform (OS + Docker + Kind)
+    volume_size = 20 # Minimal space for demo platform (OS + Docker + Kind)
     encrypted   = true
   }
 
@@ -216,12 +216,12 @@ data "aws_ami" "amazon_linux" {
     name   = "name"
     values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
-  
+
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
   }
-  
+
   filter {
     name   = "state"
     values = ["available"]

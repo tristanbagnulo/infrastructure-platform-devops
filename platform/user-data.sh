@@ -398,7 +398,7 @@ echo "@reboot ec2-user /home/ec2-user/auto-setup.sh >> /home/ec2-user/setup.log 
 mkdir -p /home/ec2-user/.aws
 cat > /home/ec2-user/.aws/config << EOF
 [default]
-region = ${aws_region}
+region = $${aws_region}
 EOF
 chown -R ec2-user:ec2-user /home/ec2-user/.aws
 

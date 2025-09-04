@@ -30,7 +30,7 @@ output "platform_instance_id" {
 
 output "setup_instructions" {
   description = "Instructions to complete platform setup"
-  value = <<-EOT
+  value       = <<-EOT
     1. SSH to the platform: ${local.ssh_command}
     2. Wait for setup to complete: tail -f /var/log/cloud-init-output.log
     3. Create kind cluster: kind create cluster --name golden-path --config /home/ubuntu/kind-config.yaml
