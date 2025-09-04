@@ -89,6 +89,9 @@ jobs:
     if: needs.lint-and-validate.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev')
     runs-on: ubuntu-latest
     environment: development
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -169,6 +172,9 @@ jobs:
     if: needs.lint-and-validate.outputs.should-deploy == 'true' && github.event.inputs.environment == 'stage'
     runs-on: ubuntu-latest
     environment: staging
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -214,6 +220,9 @@ jobs:
     if: needs.lint-and-validate.outputs.should-deploy == 'true' && github.event.inputs.environment == 'prod'
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -259,6 +268,9 @@ jobs:
     if: github.event.inputs.action == 'destroy'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -293,6 +305,9 @@ jobs:
     if: github.event.inputs.action == 'plan-only'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
