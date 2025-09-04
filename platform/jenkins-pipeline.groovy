@@ -89,7 +89,7 @@ pipeline {
                         echo "=== TERRAFORM INIT ==="
                         terraform init -input=false -upgrade
                         echo "=== TERRAFORM VALIDATE ==="
-                        terraform validate -json | jq -r '.diagnostics[]? | "\(.severity | ascii_upcase): \(.summary) - \(.detail)"' || terraform validate
+                        terraform validate -json | jq -r '.diagnostics[]? | "\\(.severity | ascii_upcase): \\(.summary) - \\(.detail)"' || terraform validate
                         echo "✅ Terraform configuration is valid"
                     '''
                 }
@@ -155,7 +155,7 @@ pipeline {
                         terraform apply -auto-approve platform-${ENVIRONMENT}.tfplan
                         
                         echo "=== DEPLOYMENT OUTPUTS ==="
-                        terraform output -json | jq -r 'to_entries[] | "\(.key): \(.value.value)"' || terraform output
+                        terraform output -json | jq -r 'to_entries[] | "\\(.key): \\(.value.value)"' || terraform output
                         echo "=========================="
                         
                         echo "✅ Platform deployed successfully!"
@@ -299,7 +299,7 @@ pipeline {
                     dir(env.TERRAFORM_DIR) {
                         sh '''
                             echo "=== TERRAFORM STATE INFO ==="
-                            terraform show -json 2>/dev/null | jq -r '.values.root_module.resources[]? | "\(.type): \(.name) - \(.values.id // "pending")"' || echo "No state available"
+                            terraform show -json 2>/dev/null | jq -r '.values.root_module.resources[]? | "\\(.type): \\(.name) - \\(.values.id // "pending")"' || echo "No state available"
                             echo "============================"
                         '''
                     }
