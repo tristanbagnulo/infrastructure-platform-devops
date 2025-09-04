@@ -6,7 +6,10 @@ locals {
 data "aws_iam_policy_document" "assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
-    principals { type = "Federated" identifiers = [var.oidc_provider_arn] }
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
     condition {
       test     = "StringEquals"
       variable = "${var.oidc_provider_url}:sub"
