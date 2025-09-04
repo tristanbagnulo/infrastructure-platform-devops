@@ -30,3 +30,7 @@ logs/
 
 # Local development files (not for upstream)
 temp/
+
+# Jenkins generated files
+pipeline-config.xml
+*.xml

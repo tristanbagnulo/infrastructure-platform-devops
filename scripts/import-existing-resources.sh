@@ -54,9 +54,9 @@ fi
 
 # 2. Import IAM Policy
 print_status "info" "Importing IAM policy..."
-POLICY_ARN=$(aws iam list-policies --profile $AWS_PROFILE --query 'Policies[?PolicyName==`golden-path-platform-permissions`].Arn' --output text)
+POLICY_ARN=$(aws iam list-policies --profile $AWS_PROFILE --query "Policies[?PolicyName==\`golden-path-platform-permissions\`].Arn" --output text)
 if [ -n "$POLICY_ARN" ]; then
-    terraform import aws_iam_policy.platform_permissions $POLICY_ARN || print_status "warning" "Policy may already be imported"
+    terraform import aws_iam_policy.platform_permissions "$POLICY_ARN" || print_status "warning" "Policy may already be imported"
     print_status "success" "IAM policy imported"
 else
     print_status "warning" "IAM policy not found, will be created"
@@ -75,7 +75,7 @@ fi
 print_status "info" "Importing Security Group..."
 SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --profile $AWS_PROFILE --query "SecurityGroups[?contains(GroupName, \`golden-path-platform\`)].GroupId" --output text | head -1)
 if [ -n "$SECURITY_GROUP_ID" ]; then
-    terraform import aws_security_group.platform $SECURITY_GROUP_ID || print_status "warning" "Security group may already be imported"
+    terraform import aws_security_group.platform "$SECURITY_GROUP_ID" || print_status "warning" "Security group may already be imported"
     print_status "success" "Security group imported: $SECURITY_GROUP_ID"
 else
     print_status "warning" "Security group not found, will be created"
@@ -83,9 +83,9 @@ fi
 
 # 5. Import Elastic IP
 print_status "info" "Importing Elastic IP..."
-ALLOCATION_ID=$(aws ec2 describe-addresses --profile $AWS_PROFILE --query 'Addresses[?PublicIp==`18.223.242.198`].AllocationId' --output text)
+ALLOCATION_ID=$(aws ec2 describe-addresses --profile $AWS_PROFILE --query "Addresses[?PublicIp==\`18.223.242.198\`].AllocationId" --output text)
 if [ -n "$ALLOCATION_ID" ]; then
-    terraform import aws_eip.platform $ALLOCATION_ID || print_status "warning" "Elastic IP may already be imported"
+    terraform import aws_eip.platform "$ALLOCATION_ID" || print_status "warning" "Elastic IP may already be imported"
     print_status "success" "Elastic IP imported: $ALLOCATION_ID"
 else
     print_status "warning" "Elastic IP not found, will be created"
@@ -93,9 +93,9 @@ fi
 
 # 6. Import EC2 Instance
 print_status "info" "Importing EC2 instance..."
-INSTANCE_ID=$(aws ec2 describe-instances --profile $AWS_PROFILE --query 'Reservations[*].Instances[?State.Name==`running` && PublicIpAddress==`18.223.242.198`].InstanceId' --output text)
+INSTANCE_ID=$(aws ec2 describe-instances --profile $AWS_PROFILE --query "Reservations[*].Instances[?State.Name==\`running\` && PublicIpAddress==\`18.223.242.198\`].InstanceId" --output text)
 if [ -n "$INSTANCE_ID" ]; then
-    terraform import aws_instance.platform $INSTANCE_ID || print_status "warning" "EC2 instance may already be imported"
+    terraform import aws_instance.platform "$INSTANCE_ID" || print_status "warning" "EC2 instance may already be imported"
     print_status "success" "EC2 instance imported: $INSTANCE_ID"
 else
     print_status "warning" "EC2 instance not found, will be created"
@@ -104,7 +104,7 @@ fi
 # 7. Import EIP Association
 print_status "info" "Importing EIP association..."
 if [ -n "$INSTANCE_ID" ] && [ -n "$ALLOCATION_ID" ]; then
-    terraform import aws_eip_association.platform $ALLOCATION_ID || print_status "warning" "EIP association may already be imported"
+    terraform import aws_eip_association.platform "$ALLOCATION_ID" || print_status "warning" "EIP association may already be imported"
     print_status "success" "EIP association imported"
 else
     print_status "warning" "EIP association not found, will be created"
