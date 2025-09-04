@@ -1,6 +1,7 @@
 # Golden Path Platform Infrastructure
 # Deploys the platform itself on AWS using kind instead of EKS
 # Demo trigger: $(date) - Testing end-to-end GitOps pipeline
+# Workflow fix applied - should now deploy successfully
 
 terraform {
   required_version = ">= 1.0"
