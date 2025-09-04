@@ -1,13 +1,15 @@
 #!/bin/bash
-# Jenkins Pipeline Plugin Installation Script
-# This script pre-installs all necessary Pipeline plugins for Jenkins
+# Jenkins GitOps Plugin Installation Script
+# This script pre-installs all necessary plugins for Jenkins GitOps integration
+# Includes: Pipeline, Git, GitHub, Kubernetes, Docker, and utility plugins
 
 set -e
 
-echo "🔌 Installing Jenkins Pipeline plugins..."
+echo "🔌 Installing Jenkins GitOps plugins..."
 
-# List of essential Pipeline plugins
+# List of essential Pipeline and GitOps plugins
 PLUGINS=(
+    # Core Pipeline plugins
     "workflow-job"
     "workflow-cps"
     "workflow-cps-global-lib"
@@ -36,6 +38,41 @@ PLUGINS=(
     "pipeline-utility-steps"
     "pipeline-maven"
     "pipeline-github-lib"
+    "pipeline-github"
+    "pipeline-multibranch"
+    "pipeline-stage-tags-metadata"
+    "pipeline-model-api"
+    "pipeline-declarative-agent-api"
+    "pipeline-declarative-extension-points-api"
+    "pipeline-cps-global-lib"
+    "pipeline-aggregator"
+    
+    # GitOps and Git Integration plugins
+    "git"
+    "git-client"
+    "scm-api"
+    "credentials-binding"
+    "docker-workflow"
+    "kubernetes"
+    "github"
+    "github-branch-source"
+    "github-pullrequest"
+    "github-organization-folder"
+    
+    # Additional useful plugins
+    "blueocean"
+    "configuration-as-code"
+    "job-dsl"
+    "build-timeout"
+    "timestamper"
+    "ws-cleanup"
+    "ant"
+    "gradle"
+    "workflow-aggregator"
+    "pipeline-github-lib"
+    "pipeline-stage-view"
+    "pipeline-utility-steps"
+    "pipeline-maven"
     "pipeline-github"
     "pipeline-multibranch"
     "pipeline-stage-tags-metadata"
