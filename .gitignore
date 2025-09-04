@@ -5,13 +5,10 @@
 *.tfplan.*
 .terraform/
 .terraform.lock.hcl
+terraform.tfvars
 
-# AWS Credentials
-*.pem
-*.key
+# AWS
 .aws/
-.env
-.env.*
 
 # IDE
 .vscode/
@@ -28,5 +25,5 @@ Thumbs.db
 logs/
 
 # Temporary files
-tmp/
-temp/
+*.tmp
+*.temp

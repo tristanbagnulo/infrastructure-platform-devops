@@ -1,112 +1,49 @@
 #!/bin/bash
-# Jenkins GitOps Plugin Installation Script
-# This script pre-installs all necessary plugins for Jenkins GitOps integration
-# Includes: Pipeline, Git, GitHub, Kubernetes, Docker, and utility plugins
-
+# Jenkins Plugin Installation and Port Forwarding Script
 set -e
 
-echo "🔌 Installing Jenkins GitOps plugins..."
+echo "🔌 Installing Jenkins plugins..."
 
-# List of essential Pipeline and GitOps plugins
-PLUGINS=(
-    # Core Pipeline plugins
-    "workflow-job"
-    "workflow-cps"
-    "workflow-cps-global-lib"
-    "workflow-basic-steps"
-    "workflow-durable-task-step"
-    "workflow-step-api"
-    "workflow-api"
-    "workflow-support"
-    "workflow-scm-step"
-    "workflow-multibranch"
-    "workflow-stage-step"
-    "workflow-input-step"
-    "workflow-milestone-step"
-    "workflow-build-step"
-    "workflow-groovy-lib"
-    "workflow-github"
-    "workflow-github-lib"
-    "workflow-stage-tags-metadata"
-    "workflow-model-api"
-    "workflow-declarative-agent-api"
-    "workflow-declarative-extension-points-api"
-    "workflow-aggregator"
-    "pipeline-stage-view"
-    "pipeline-graph-analysis"
-    "pipeline-rest-api"
-    "pipeline-utility-steps"
-    "pipeline-maven"
-    "pipeline-github-lib"
-    "pipeline-github"
-    "pipeline-multibranch"
-    "pipeline-stage-tags-metadata"
-    "pipeline-model-api"
-    "pipeline-declarative-agent-api"
-    "pipeline-declarative-extension-points-api"
-    "pipeline-cps-global-lib"
-    "pipeline-aggregator"
-    
-    # GitOps and Git Integration plugins
-    "git"
-    "git-client"
-    "scm-api"
-    "credentials-binding"
-    "docker-workflow"
-    "kubernetes"
-    "github"
-    "github-branch-source"
-    "github-pullrequest"
-    "github-organization-folder"
-    
-    # Additional useful plugins
-    "blueocean"
-    "configuration-as-code"
-    "job-dsl"
-    "build-timeout"
-    "timestamper"
-    "ws-cleanup"
-    "ant"
-    "gradle"
-    "workflow-aggregator"
-    "pipeline-github-lib"
-    "pipeline-stage-view"
-    "pipeline-utility-steps"
-    "pipeline-maven"
-    "pipeline-github"
-    "pipeline-multibranch"
-    "pipeline-stage-tags-metadata"
-    "pipeline-model-api"
-    "pipeline-declarative-agent-api"
-    "pipeline-declarative-extension-points-api"
-    "pipeline-cps-global-lib"
-    "pipeline-aggregator"
-)
+# Wait for Jenkins to be ready
+echo "⏳ Waiting for Jenkins to be ready..."
+kubectl wait --for=condition=available --timeout=300s deployment/jenkins -n jenkins
 
-# Function to install a plugin
-install_plugin() {
-    local plugin_name=$1
-    local plugin_file="/var/jenkins_home/plugins/${plugin_name}.jpi"
-    local plugin_url="https://updates.jenkins.io/latest/${plugin_name}.hpi"
-    
-    echo "Installing ${plugin_name}..."
-    if curl -L -o "${plugin_file}" "${plugin_url}"; then
-        echo "✅ ${plugin_name} installed successfully"
-    else
-        echo "❌ Failed to install ${plugin_name}"
-        return 1
-    fi
-}
+# Install essential plugins
+kubectl exec -n jenkins deployment/jenkins -- bash -c '
+    echo "Installing Jenkins plugins..."
+    curl -L -o /var/jenkins_home/plugins/git.hpi https://updates.jenkins.io/latest/git.hpi
+    curl -L -o /var/jenkins_home/plugins/workflow-aggregator.hpi https://updates.jenkins.io/latest/workflow-aggregator.hpi
+    curl -L -o /var/jenkins_home/plugins/pipeline-stage-view.hpi https://updates.jenkins.io/latest/pipeline-stage-view.hpi
+    curl -L -o /var/jenkins_home/plugins/github.hpi https://updates.jenkins.io/latest/github.hpi
+    curl -L -o /var/jenkins_home/plugins/kubernetes.hpi https://updates.jenkins.io/latest/kubernetes.hpi
+    curl -L -o /var/jenkins_home/plugins/docker-workflow.hpi https://updates.jenkins.io/latest/docker-workflow.hpi
+    echo "Plugins installed successfully!"
+'
 
-# Install all plugins
-for plugin in "${PLUGINS[@]}"; do
-    install_plugin "${plugin}" || echo "⚠️  Warning: Failed to install ${plugin}"
-done
-
-echo "🎉 Plugin installation complete!"
-echo "📋 Installed plugins:"
-find /var/jenkins_home/plugins -name "*.jpi" | wc -l | xargs echo "Total plugins:"
-
+# Restart Jenkins to load plugins
 echo "🔄 Restarting Jenkins to load plugins..."
-# Note: This script should be run inside the Jenkins container
-# The restart will be handled by the calling script
+kubectl rollout restart deployment/jenkins -n jenkins
+
+# Wait for Jenkins to be ready again
+echo "⏳ Waiting for Jenkins to be ready after restart..."
+kubectl wait --for=condition=available --timeout=300s deployment/jenkins -n jenkins
+
+# Set up automatic port forwarding
+echo "🌐 Setting up automatic port forwarding..."
+cat > /home/ec2-user/setup-port-forwarding.sh << 'EOF'
+#!/bin/bash
+# Auto port forwarding script
+while true; do
+    kubectl port-forward --address 0.0.0.0 -n jenkins svc/jenkins 8081:8080 2>/dev/null || true
+    sleep 5
+done
+EOF
+
+chmod +x /home/ec2-user/setup-port-forwarding.sh
+
+# Start port forwarding in background
+nohup /home/ec2-user/setup-port-forwarding.sh > /var/log/port-forward.log 2>&1 &
+
+echo "✅ Jenkins plugins installed and port forwarding started!"
+echo "🔌 Jenkins plugins installed and ready!"
+echo "📋 Pipeline as Code is ready to use!"

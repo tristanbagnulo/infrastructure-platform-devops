@@ -179,9 +179,19 @@ resource "aws_iam_instance_profile" "platform" {
 
 # User data script to set up the platform
 locals {
-  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+  user_data = base64encode(templatefile("${path.module}/user-data-simple.sh", {
     aws_region = var.aws_region
   }))
+}
+
+# Elastic IP for persistent IP address
+resource "aws_eip" "platform" {
+  domain = "vpc"
+  
+  tags = {
+    Name = "golden-path-platform-eip"
+    Type = "platform-cluster"
+  }
 }
 
 # EC2 instance for the platform
@@ -206,6 +216,12 @@ resource "aws_instance" "platform" {
     Name = "golden-path-platform"
     Type = "platform-cluster"
   }
+}
+
+# Associate Elastic IP with the instance
+resource "aws_eip_association" "platform" {
+  instance_id   = aws_instance.platform.id
+  allocation_id = aws_eip.platform.id
 }
 
 data "aws_ami" "amazon_linux" {
