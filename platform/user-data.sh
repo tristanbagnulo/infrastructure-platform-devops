@@ -102,7 +102,7 @@ spec:
     spec:
       containers:
       - name: jenkins
-        image: jenkins/jenkins:lts
+        image: jenkins/jenkins:lts-jdk11
         ports:
         - containerPort: 8080
         - containerPort: 50000
@@ -118,6 +118,12 @@ spec:
         - name: aws-cli
           mountPath: /usr/local/bin/aws
           subPath: aws
+        - name: jq-bin
+          mountPath: /usr/local/bin/jq
+          subPath: jq
+        - name: kubectl-bin
+          mountPath: /usr/local/bin/kubectl
+          subPath: kubectl
       volumes:
       - name: jenkins-home
         emptyDir: {}
@@ -127,6 +133,12 @@ spec:
       - name: aws-cli
         hostPath:
           path: /usr/local/bin/aws
+      - name: jq-bin
+        hostPath:
+          path: /usr/local/bin/jq
+      - name: kubectl-bin
+        hostPath:
+          path: /usr/local/bin/kubectl
 ---
 apiVersion: v1
 kind: Service
