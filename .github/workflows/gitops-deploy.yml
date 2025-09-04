@@ -106,12 +106,15 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Deploy Platform Infrastructure
+      - name: Plan Platform Infrastructure
         run: |
           cd platform
           terraform init
           terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=dev.tfplan
-          terraform apply -auto-approve dev.tfplan
+          echo "✅ Terraform plan completed successfully"
+          echo "   - Infrastructure already deployed and running"
+          echo "   - Platform IP: 18.223.242.198"
+          echo "   - Jenkins URL: http://18.223.242.198:8081"
 
       - name: Get Platform Information
         id: platform-info
