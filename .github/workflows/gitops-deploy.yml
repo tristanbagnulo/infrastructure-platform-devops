@@ -126,7 +126,7 @@ jobs:
         id: platform-info
         run: |
           cd platform
-          PLATFORM_IP=$(terraform output -raw platform_ip)
+          PLATFORM_IP=$(terraform output -raw platform_public_ip)
           echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
           echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
 
@@ -209,7 +209,7 @@ jobs:
         id: platform-info
         run: |
           cd platform
-          PLATFORM_IP=$(terraform output -raw platform_ip)
+          PLATFORM_IP=$(terraform output -raw platform_public_ip)
           echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
           echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
 
@@ -257,7 +257,7 @@ jobs:
         id: platform-info
         run: |
           cd platform
-          PLATFORM_IP=$(terraform output -raw platform_ip)
+          PLATFORM_IP=$(terraform output -raw platform_public_ip)
           echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
           echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
 
