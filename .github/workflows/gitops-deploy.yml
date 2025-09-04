@@ -1,0 +1,348 @@
+name: GitOps Infrastructure Deployment
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'platform/**'
+      - 'modules/**'
+      - 'governance/**'
+      - 'Jenkinsfile'
+      - 'infra/requests/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'platform/**'
+      - 'modules/**'
+      - 'governance/**'
+      - 'Jenkinsfile'
+      - 'infra/requests/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+      action:
+        description: 'Deployment action'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+          - plan-only
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-east-2'
+  KEY_PAIR_NAME: 'golden-path-dev-new'
+
+jobs:
+  # Lint and validate infrastructure code
+  lint-and-validate:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.decision.outputs.should-deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run infrastructure linting
+        run: |
+          chmod +x scripts/pre-commit-lint.sh
+          ./scripts/pre-commit-lint.sh
+
+      - name: Determine if deployment should proceed
+        id: decision
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "🔍 PR detected - linting only"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "🚀 Main/develop branch - proceeding with deployment"
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "⏭️  Other branch - skipping deployment"
+          fi
+
+  # Deploy to development environment
+  deploy-dev:
+    name: Deploy to Development
+    needs: lint-and-validate
+    if: needs.lint-and-validate.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev')
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Deploy Platform Infrastructure
+        run: |
+          cd platform
+          terraform init
+          terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=dev.tfplan
+          terraform apply -auto-approve dev.tfplan
+
+      - name: Get Platform Information
+        id: platform-info
+        run: |
+          cd platform
+          PLATFORM_IP=$(terraform output -raw platform_ip)
+          echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
+          echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
+
+      - name: Wait for Platform to be Ready
+        run: |
+          echo "⏳ Waiting for platform to be ready..."
+          sleep 60
+          
+          # Test SSH connectivity
+          for i in {1..10}; do
+            if ssh -o StrictHostKeyChecking=no -i ~/.ssh/golden-path-dev-new.pem ec2-user@${{ steps.platform-info.outputs.platform-ip }} "echo 'SSH connection successful'"; then
+              echo "✅ Platform is ready!"
+              break
+            else
+              echo "⏳ Attempt $i/10 - Platform not ready yet, waiting..."
+              sleep 30
+            fi
+          done
+
+      - name: Verify Jenkins Deployment
+        run: |
+          echo "🔍 Verifying Jenkins deployment..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/golden-path-dev-new.pem ec2-user@${{ steps.platform-info.outputs.platform-ip }} "
+            kubectl get pods -n jenkins
+            kubectl get svc -n jenkins
+          "
+
+      - name: Deploy Application Infrastructure
+        run: |
+          echo "🚀 Deploying application infrastructure..."
+          cd platform
+          
+          # Deploy S3 bucket for applications
+          terraform apply -auto-approve -target=aws_s3_bucket.applications -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}"
+          
+          # Deploy IAM roles for applications
+          terraform apply -auto-approve -target=aws_iam_role.application_role -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}"
+
+      - name: Update Deployment Status
+        run: |
+          echo "📊 Deployment Summary:"
+          echo "  - Environment: Development"
+          echo "  - Platform IP: ${{ steps.platform-info.outputs.platform-ip }}"
+          echo "  - Jenkins URL: ${{ steps.platform-info.outputs.jenkins-url }}"
+          echo "  - SSH Command: ssh -i ~/.ssh/golden-path-dev-new.pem ec2-user@${{ steps.platform-info.outputs.platform-ip }}"
+          echo "  - Status: ✅ Deployed Successfully"
+
+  # Deploy to staging environment
+  deploy-stage:
+    name: Deploy to Staging
+    needs: lint-and-validate
+    if: needs.lint-and-validate.outputs.should-deploy == 'true' && github.event.inputs.environment == 'stage'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Deploy Platform Infrastructure
+        run: |
+          cd platform
+          terraform init
+          terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=stage" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=stage.tfplan
+          terraform apply -auto-approve stage.tfplan
+
+      - name: Get Platform Information
+        id: platform-info
+        run: |
+          cd platform
+          PLATFORM_IP=$(terraform output -raw platform_ip)
+          echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
+          echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
+
+      - name: Update Deployment Status
+        run: |
+          echo "📊 Staging Deployment Summary:"
+          echo "  - Environment: Staging"
+          echo "  - Platform IP: ${{ steps.platform-info.outputs.platform-ip }}"
+          echo "  - Jenkins URL: ${{ steps.platform-info.outputs.jenkins-url }}"
+          echo "  - Status: ✅ Deployed Successfully"
+
+  # Deploy to production environment
+  deploy-prod:
+    name: Deploy to Production
+    needs: lint-and-validate
+    if: needs.lint-and-validate.outputs.should-deploy == 'true' && github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Deploy Platform Infrastructure
+        run: |
+          cd platform
+          terraform init
+          terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=prod" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=prod.tfplan
+          terraform apply -auto-approve prod.tfplan
+
+      - name: Get Platform Information
+        id: platform-info
+        run: |
+          cd platform
+          PLATFORM_IP=$(terraform output -raw platform_ip)
+          echo "platform-ip=$PLATFORM_IP" >> $GITHUB_OUTPUT
+          echo "jenkins-url=http://$PLATFORM_IP:8081" >> $GITHUB_OUTPUT
+
+      - name: Update Deployment Status
+        run: |
+          echo "📊 Production Deployment Summary:"
+          echo "  - Environment: Production"
+          echo "  - Platform IP: ${{ steps.platform-info.outputs.platform-ip }}"
+          echo "  - Jenkins URL: ${{ steps.platform-info.outputs.jenkins-url }}"
+          echo "  - Status: ✅ Deployed Successfully"
+
+  # Destroy infrastructure
+  destroy:
+    name: Destroy Infrastructure
+    needs: lint-and-validate
+    if: github.event.inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Destroy Infrastructure
+        run: |
+          cd platform
+          terraform init
+          terraform destroy -auto-approve -var="aws_region=${{ env.AWS_REGION }}" -var="environment=${{ github.event.inputs.environment }}" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}"
+
+      - name: Update Destruction Status
+        run: |
+          echo "🗑️  Destruction Summary:"
+          echo "  - Environment: ${{ github.event.inputs.environment }}"
+          echo "  - Status: ✅ Destroyed Successfully"
+
+  # Plan only (no deployment)
+  plan-only:
+    name: Plan Infrastructure Changes
+    needs: lint-and-validate
+    if: github.event.inputs.action == 'plan-only'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Plan Infrastructure Changes
+        run: |
+          cd platform
+          terraform init
+          terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=${{ github.event.inputs.environment }}" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=${{ github.event.inputs.environment }}.tfplan
+          
+          echo "📋 Plan Summary:"
+          echo "  - Environment: ${{ github.event.inputs.environment }}"
+          echo "  - Plan file: ${{ github.event.inputs.environment }}.tfplan"
+          echo "  - Status: ✅ Plan generated successfully"
+
+  # Notify deployment status
+  notify:
+    name: Notify Deployment Status
+    needs: [deploy-dev, deploy-stage, deploy-prod, destroy, plan-only]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Status Summary
+        run: |
+          echo "🎯 GitOps Deployment Pipeline Complete"
+          echo "======================================"
+          echo "  - Lint Status: ${{ needs.lint-and-validate.result }}"
+          echo "  - Dev Deployment: ${{ needs.deploy-dev.result }}"
+          echo "  - Stage Deployment: ${{ needs.deploy-stage.result }}"
+          echo "  - Prod Deployment: ${{ needs.deploy-prod.result }}"
+          echo "  - Destroy Action: ${{ needs.destroy.result }}"
+          echo "  - Plan Action: ${{ needs.plan-only.result }}"
+          echo "======================================"
+          
+          if [[ "${{ needs.lint-and-validate.result }}" == "success" ]]; then
+            echo "✅ All checks passed successfully!"
+          else
+            echo "❌ Some checks failed. Please review the logs."
+            exit 1
+          fi
