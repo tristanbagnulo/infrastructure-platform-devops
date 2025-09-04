@@ -17,8 +17,8 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.aws_region
-  profile = "sso-dev-admin" # Use the admin SSO profile for full permissions
+  region = var.aws_region
+  # No profile needed - GitHub Actions provides credentials via OIDC
 
   default_tags {
     tags = {
