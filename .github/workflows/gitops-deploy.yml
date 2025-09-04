@@ -5,7 +5,8 @@ on:
     branches: [ main, develop ]
     paths:
       - 'platform/**'
-      - 'modules/*on       - 'Jenkinsfile'
+      - 'modules/**'
+      - 'Jenkinsfile'
       - 'infra/requests/**'
   pull_request:
     branches: [ main ]
