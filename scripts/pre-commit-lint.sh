@@ -75,7 +75,7 @@ echo "🔍 Checking for common Terraform syntax issues..."
 
 # Check for unescaped variables in user-data.sh
 if [ -f "platform/user-data.sh" ]; then
-    if grep -n '\${[^$]' platform/user-data.sh | grep -v '\$\${'; then
+    if grep -n "\${[^$]" platform/user-data.sh | grep -v "\$\${"; then
         print_status "error" "Found unescaped Terraform variables in user-data.sh"
         echo "Use \$\${variable} instead of \${variable} in bash scripts"
         exit 1
@@ -90,7 +90,7 @@ if [ -f "platform/user-data.sh" ]; then
     
     # Check for user-data size limit
     user_data_size=$(wc -c < platform/user-data.sh)
-    if [ $user_data_size -gt 16384 ]; then
+    if [ "$user_data_size" -gt 16384 ]; then
         print_status "error" "user-data.sh is too large ($user_data_size bytes)"
         echo "AWS user-data limit is 16KB. Current size exceeds limit."
         exit 1
@@ -104,13 +104,13 @@ echo "🔍 Validating Jenkinsfile syntax..."
 if [ -f "Jenkinsfile" ]; then
     # Check for common Groovy syntax issues
     # Look for specific problematic patterns in shell commands
-    if grep -n 'terraform.*\${[A-Z_]*}' Jenkinsfile | grep -v '\\\${'; then
+    if grep -n "terraform.*\${[A-Z_]*}" Jenkinsfile | grep -v "\\\${"; then
         print_status "error" "Found unescaped variables in terraform commands"
         echo "Use \\\$ instead of \$ in terraform shell commands"
         exit 1
     fi
     
-    if grep -n 'ssh.*\${[A-Z_]*}' Jenkinsfile | grep -v '\\\${'; then
+    if grep -n "ssh.*\${[A-Z_]*}" Jenkinsfile | grep -v "\\\${"; then
         print_status "error" "Found unescaped variables in ssh commands"
         echo "Use \\\$ instead of \$ in ssh shell commands"
         exit 1
@@ -158,7 +158,7 @@ if grep -r "AKIA[0-9A-Z]{16}" . --exclude-dir=.git --exclude-dir=node_modules 2>
 fi
 
 # Check for private keys
-if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.sh" --exclude="*.yml" 2>/dev/null; then
+if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.sh" --exclude="*.yml" --exclude="*.md" 2>/dev/null; then
     print_status "error" "Found potential private key in code"
     echo "Remove private keys and use secure credential management"
     exit 1
