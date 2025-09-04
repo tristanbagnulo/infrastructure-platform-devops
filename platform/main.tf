@@ -188,7 +188,7 @@ resource "aws_iam_role_policy_attachment" "platform_permissions" {
 }
 
 resource "aws_iam_instance_profile" "platform" {
-  name = "golden-path-platform-profile"
+  name = "golden-path-platform-profile-v2"
   role = aws_iam_role.platform_instance.name
 }
 
