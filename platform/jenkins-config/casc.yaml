@@ -1,0 +1,243 @@
+# Jenkins Configuration as Code for Golden Path Platform
+# Implements the governance and security model
+
+jenkins:
+  systemMessage: "🚀 Golden Path Developer Platform - Multi-Account AWS Deployment"
+  
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "platform-admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+          
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            description: "Platform administrators"
+            permissions:
+              - "Overall/Administer"
+            assignments:
+              - "platform-admin"
+          - name: "developer"
+            description: "Application developers"
+            permissions:
+              - "Overall/Read"
+              - "Job/Build"
+              - "Job/Cancel"
+              - "Job/Read"
+            assignments:
+              - "authenticated"
+        items:
+          - name: "dev-deployer"
+            description: "Can deploy to dev environment"
+            pattern: ".*-dev"
+            permissions:
+              - "Job/Build"
+              - "Job/Cancel"
+              - "Job/Configure"
+              - "Job/Read"
+            assignments:
+              - "developer"
+          - name: "stage-deployer"
+            description: "Can deploy to stage environment (with approval)"
+            pattern: ".*-stage"
+            permissions:
+              - "Job/Build"
+              - "Job/Cancel"
+              - "Job/Read"
+            assignments:
+              - "developer"
+
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "AWS_REGION"
+            value: "us-east-2"
+          - key: "PLATFORM_ENV"
+            value: "${PLATFORM_ENVIRONMENT}"
+
+  clouds:
+    - kubernetes:
+        name: "golden-path-cluster"
+        serverUrl: "https://kubernetes.default.svc.cluster.local"
+        namespace: "jenkins"
+        jenkinsUrl: "http://jenkins:8080"
+        jenkinsTunnel: "jenkins:50000"
+        templates:
+          - name: "terraform-agent"
+            label: "terraform"
+            containers:
+              - name: "terraform"
+                image: "hashicorp/terraform:1.6"
+                command: "sleep"
+                args: "infinity"
+                resourceRequestCpu: "100m"
+                resourceRequestMemory: "256Mi"
+                resourceLimitCpu: "500m"
+                resourceLimitMemory: "512Mi"
+          - name: "aws-cli-agent"
+            label: "aws-cli"
+            containers:
+              - name: "aws-cli"
+                image: "amazon/aws-cli:latest"
+                command: "sleep"
+                args: "infinity"
+                resourceRequestCpu: "100m"
+                resourceRequestMemory: "256Mi"
+
+jobs:
+  - script: |
+      folder('platform') {
+        description('Platform infrastructure jobs')
+      }
+      
+      folder('applications') {
+        description('Application deployment jobs')
+      }
+      
+      // Platform deployment pipeline
+      pipelineJob('platform/deploy-platform') {
+        description('Deploy Golden Path Platform Infrastructure')
+        parameters {
+          choiceParam('ENVIRONMENT', ['dev', 'stage', 'prod'], 'Target environment')
+          booleanParam('DESTROY', false, 'Destroy infrastructure')
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('${PLATFORM_REPO_URL}')
+                  credentials('git-credentials')
+                }
+                branch('main')
+              }
+            }
+            scriptPath('infrastructure-platform-devops/platform/jenkins-pipeline.groovy')
+          }
+        }
+        properties {
+          pipelineTriggers {
+            triggers {
+              githubPush()
+            }
+          }
+        }
+      }
+      
+      // Application template pipeline
+      pipelineJob('applications/golden-path-app') {
+        description('Golden Path Application Deployment Template')
+        parameters {
+          stringParam('APP_NAME', '', 'Application name')
+          choiceParam('ENVIRONMENT', ['dev', 'stage', 'prod'], 'Target environment')
+          stringParam('GIT_REPO', '', 'Application Git repository')
+          stringParam('GIT_BRANCH', 'main', 'Git branch to deploy')
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('${APP_TEMPLATE_REPO_URL}')
+                  credentials('git-credentials')
+                }
+                branch('main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+      }
+
+tool:
+  terraform:
+    installations:
+      - name: "terraform-1.6"
+        properties:
+          - installSource:
+              installers:
+                - terraformInstaller:
+                    id: "1.6.0"
+
+unclassified:
+  globalLibraries:
+    libraries:
+      - name: "golden-path-shared"
+        defaultVersion: "main"
+        retriever:
+          modernSCM:
+            scm:
+              git:
+                remote: "${SHARED_LIBRARY_REPO_URL}"
+                credentialsId: "git-credentials"
+
+  awsCredentialsProvider:
+    providers:
+      - iamRole:
+          roleArn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsExecutionRole"
+          roleSessionName: "jenkins-session"
+
+  # Multi-account AWS configuration
+  awsGlobalConfiguration:
+    region: "us-east-2"
+    profiles:
+      - name: "dev"
+        roleArn: "arn:aws:iam::405474549744:role/JenkinsExecutionRole"
+        externalId: "golden-path-dev"
+      - name: "stage"
+        roleArn: "arn:aws:iam::806571984724:role/JenkinsExecutionRole"
+        externalId: "golden-path-stage"
+      - name: "prod"
+        roleArn: "arn:aws:iam::110948415536:role/JenkinsExecutionRole"
+        externalId: "golden-path-prod"
+
+  # Security configuration
+  scriptApproval:
+    approvedSignatures:
+      - "method java.lang.String trim"
+      - "staticMethod java.lang.System getenv java.lang.String"
+      - "new java.util.Date"
+
+  # Governance and compliance
+  buildDiscarders:
+    configuredBuildDiscarders:
+      - jobBuildDiscarder:
+          discarder:
+            logRotator:
+              daysToKeepStr: "30"
+              numToKeepStr: "100"
+              artifactDaysToKeepStr: "7"
+              artifactNumToKeepStr: "10"
+
+  # Monitoring and alerting
+  mailer:
+    smtpHost: "${SMTP_HOST}"
+    smtpPort: 587
+    useSsl: true
+    charset: "UTF-8"
+
+  # Webhook configuration for Git integration
+  githubpluginconfig:
+    configs:
+      - name: "golden-path-webhooks"
+        apiUrl: "https://api.github.com"
+        credentialsId: "github-token"
+        manageHooks: true
+
+security:
+  # Global security settings
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: true
+  
+  # CSRF protection
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+  
+  # Content Security Policy
+  contentSecurityPolicyReportOnly: false
+  contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
