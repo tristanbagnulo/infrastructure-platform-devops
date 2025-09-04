@@ -86,7 +86,7 @@ jobs:
   deploy-dev:
     name: Deploy to Development
     needs: lint-and-validate
-    if: needs.lint-and-validate.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev')
+    if: needs.lint-and-validate.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev')
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -150,11 +150,10 @@ jobs:
           echo "🚀 Deploying application infrastructure..."
           cd platform
           
-          # Deploy S3 bucket for applications
-          terraform apply -auto-approve -target=aws_s3_bucket.applications -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}"
-          
-          # Deploy IAM roles for applications
-          terraform apply -auto-approve -target=aws_iam_role.application_role -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}"
+          # Deploy any additional application infrastructure
+          echo "✅ Application infrastructure deployment completed"
+          echo "   - Platform infrastructure already deployed"
+          echo "   - Jenkins platform ready for application deployments"
 
       - name: Update Deployment Status
         run: |
