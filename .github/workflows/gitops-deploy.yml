@@ -3,18 +3,8 @@ name: GitOps Infrastructure Deployment
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'platform/**'
-      - 'modules/**'
-      - 'Jenkinsfile'
-      - 'infra/requests/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'platform/**'
-      - 'modules/**'
-      - 'Jenkinsfile'
-      - 'infra/requests/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -68,18 +58,36 @@ jobs:
           chmod +x scripts/pre-commit-lint.sh
           ./scripts/pre-commit-lint.sh
 
+      - name: Check for infrastructure changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "has-infra-changes=false" >> $GITHUB_OUTPUT
+            echo "🔍 PR detected - checking for infrastructure changes"
+            # Check if any infrastructure files changed
+            if git diff --name-only origin/main...HEAD | grep -E '^(platform/|modules/|Jenkinsfile|infra/requests/)'; then
+              echo "has-infra-changes=true" >> $GITHUB_OUTPUT
+              echo "✅ Infrastructure changes detected in PR"
+            else
+              echo "⏭️  No infrastructure changes in PR"
+            fi
+          else
+            echo "has-infra-changes=true" >> $GITHUB_OUTPUT
+            echo "🚀 Push to main/develop - assuming infrastructure changes"
+          fi
+
       - name: Determine if deployment should proceed
         id: decision
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "should-deploy=false" >> $GITHUB_OUTPUT
             echo "🔍 PR detected - linting only"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          elif [[ "${{ steps.changes.outputs.has-infra-changes }}" == "true" ]] && ([[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/develop" ]]); then
             echo "should-deploy=true" >> $GITHUB_OUTPUT
-            echo "🚀 Main/develop branch - proceeding with deployment"
+            echo "🚀 Infrastructure changes detected - proceeding with deployment"
           else
             echo "should-deploy=false" >> $GITHUB_OUTPUT
-            echo "⏭️  Other branch - skipping deployment"
+            echo "⏭️  No infrastructure changes or wrong branch - skipping deployment"
           fi
 
   # Deploy to development environment
