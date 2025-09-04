@@ -118,8 +118,15 @@ jobs:
       - name: Deploy Platform Infrastructure
         run: |
           cd platform
+          echo "🔍 Checking Terraform configuration files:"
+          ls -la *.tf
+          echo "🔍 Backend configuration:"
+          cat backend.tf
+          echo "🔍 Initializing Terraform with S3 backend:"
           terraform init
+          echo "🔍 Planning infrastructure changes:"
           terraform plan -var="aws_region=${{ env.AWS_REGION }}" -var="environment=dev" -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" -out=dev.tfplan
+          echo "🔍 Applying infrastructure changes:"
           terraform apply -auto-approve dev.tfplan
 
       - name: Get Platform Information
