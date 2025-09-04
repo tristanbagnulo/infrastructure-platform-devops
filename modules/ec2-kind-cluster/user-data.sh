@@ -31,7 +31,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 cat > /home/ubuntu/kind-config.yaml << EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: ${cluster_name}
+name: golden-path
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
