@@ -4,6 +4,7 @@
 # Workflow fix applied - should now deploy successfully
 # Testing workflow trigger after duplication fix
 # Testing real AWS deployment with OIDC authentication
+# Testing OIDC permissions fix
 
 terraform {
   required_version = ">= 1.0"
