@@ -114,72 +114,18 @@ resource "aws_security_group" "platform" {
   }
 }
 
-# IAM role for the platform instance (to manage AWS resources)
-resource "aws_iam_role" "platform_instance" {
+# Use existing IAM role and policy (already created)
+# This avoids conflicts with existing resources
+data "aws_iam_role" "platform_instance" {
   name = "golden-path-platform-instance-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
 }
 
-# Platform needs broad permissions to manage infrastructure for applications
-resource "aws_iam_policy" "platform_permissions" {
+data "aws_iam_policy" "platform_permissions" {
   name = "golden-path-platform-permissions"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          # S3 management
-          "s3:*",
-          # RDS management  
-          "rds:*",
-          # Secrets Manager
-          "secretsmanager:*",
-          # SSM Parameter Store
-          "ssm:*",
-          # IAM for IRSA roles
-          "iam:CreateRole",
-          "iam:DeleteRole",
-          "iam:GetRole",
-          "iam:ListRoles",
-          "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy",
-          "iam:CreatePolicy",
-          "iam:DeletePolicy",
-          "iam:GetPolicy",
-          "iam:ListPolicies",
-          # EC2 for networking
-          "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeSecurityGroups"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
 }
 
-resource "aws_iam_role_policy_attachment" "platform_permissions" {
-  role       = aws_iam_role.platform_instance.name
-  policy_arn = aws_iam_policy.platform_permissions.arn
-}
-
-resource "aws_iam_instance_profile" "platform" {
+data "aws_iam_instance_profile" "platform" {
   name = "golden-path-platform-profile"
-  role = aws_iam_role.platform_instance.name
 }
 
 # User data script to set up the platform
@@ -207,7 +153,7 @@ resource "aws_instance" "platform" {
 
   vpc_security_group_ids = [aws_security_group.platform.id]
   subnet_id              = data.aws_subnets.default.ids[0]
-  iam_instance_profile   = aws_iam_instance_profile.platform.name
+  iam_instance_profile   = data.aws_iam_instance_profile.platform.name
 
   user_data = local.user_data
 
