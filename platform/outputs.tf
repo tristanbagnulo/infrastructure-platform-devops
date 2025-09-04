@@ -3,6 +3,11 @@ output "platform_public_ip" {
   value       = data.aws_eip.platform.public_ip
 }
 
+output "platform_ip" {
+  description = "Public IP address of the Golden Path platform (alias for platform_public_ip)"
+  value       = data.aws_eip.platform.public_ip
+}
+
 output "platform_private_ip" {
   description = "Private IP address of the platform"
   value       = aws_instance.platform.private_ip
