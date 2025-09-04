@@ -161,4 +161,4 @@ terraform destroy \
 - **t3.medium instance**: Cost-effective for development workloads
 - **Kind cluster**: No EKS costs, runs on single instance
 - **GP3 storage**: Optimized for cost and performance
-- **Auto-shutdown**: Can be stopped when not in use
+- **Auto-shutdown**: Can be stopped when not in use# GitOps Platform Test - Thu Sep  4 02:22:42 EDT 2025
