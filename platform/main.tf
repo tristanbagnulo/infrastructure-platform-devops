@@ -3,6 +3,7 @@
 # Demo trigger: $(date) - Testing end-to-end GitOps pipeline
 # Workflow fix applied - should now deploy successfully
 # Testing workflow trigger after duplication fix
+# Testing real AWS deployment with OIDC authentication
 
 terraform {
   required_version = ">= 1.0"
