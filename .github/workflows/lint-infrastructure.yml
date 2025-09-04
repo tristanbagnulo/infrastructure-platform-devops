@@ -1,0 +1,240 @@
+name: Infrastructure Lint and Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tf.json'
+      - '**/*.sh'
+      - '**/*.groovy'
+      - '**/Jenkinsfile'
+      - '**/user-data.sh'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tf.json'
+      - '**/*.sh'
+      - '**/*.groovy'
+      - '**/Jenkinsfile'
+      - '**/user-data.sh'
+
+jobs:
+  terraform-lint:
+    name: Terraform Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Format Check
+        run: |
+          echo "🔍 Checking Terraform formatting..."
+          terraform fmt -check -recursive -diff
+          if [ $? -ne 0 ]; then
+            echo "❌ Terraform files are not properly formatted"
+            echo "Run 'terraform fmt -recursive' to fix formatting issues"
+            exit 1
+          fi
+          echo "✅ Terraform formatting is correct"
+
+      - name: Terraform Validate
+        run: |
+          echo "🔍 Validating Terraform configuration..."
+          cd platform
+          terraform init -backend=false
+          terraform validate
+          if [ $? -ne 0 ]; then
+            echo "❌ Terraform validation failed"
+            exit 1
+          fi
+          echo "✅ Terraform validation passed"
+
+      - name: Check for Terraform Syntax Issues
+        run: |
+          echo "🔍 Checking for common Terraform syntax issues..."
+          
+          # Check for unescaped variables in user-data.sh
+          if grep -n '\${[^$]' platform/user-data.sh; then
+            echo "❌ Found unescaped Terraform variables in user-data.sh"
+            echo "Use \$\${variable} instead of \${variable} in bash scripts"
+            exit 1
+          fi
+          
+          # Check for emoji characters that might cause encoding issues
+          if grep -P '[^\x00-\x7F]' platform/user-data.sh; then
+            echo "❌ Found non-ASCII characters in user-data.sh"
+            echo "Remove emoji characters to avoid encoding issues"
+            exit 1
+          fi
+          
+          # Check for user-data size limit
+          user_data_size=$(wc -c < platform/user-data.sh)
+          if [ $user_data_size -gt 16384 ]; then
+            echo "❌ user-data.sh is too large ($user_data_size bytes)"
+            echo "AWS user-data limit is 16KB. Current size exceeds limit."
+            exit 1
+          fi
+          
+          echo "✅ Terraform syntax checks passed"
+
+  jenkins-lint:
+    name: Jenkins Pipeline Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Install Jenkins CLI
+        run: |
+          echo "🔍 Installing Jenkins CLI for pipeline validation..."
+          wget -q http://localhost:8080/jnlpJars/jenkins-cli.jar || echo "Jenkins not available for CLI validation"
+
+      - name: Validate Jenkinsfile Syntax
+        run: |
+          echo "🔍 Validating Jenkinsfile syntax..."
+          
+          # Check for common Groovy syntax issues
+          if grep -n '\\$' Jenkinsfile | grep -v '\\$\\$'; then
+            echo "❌ Found unescaped dollar signs in Jenkinsfile"
+            echo "Use \\\$ instead of \$ in shell commands"
+            exit 1
+          fi
+          
+          # Check for proper parameter definitions
+          if ! grep -q 'parameters' Jenkinsfile; then
+            echo "⚠️  No parameters defined in Jenkinsfile"
+            echo "Consider adding parameters for environment, region, etc."
+          fi
+          
+          # Check for proper environment variables
+          if ! grep -q 'environment' Jenkinsfile; then
+            echo "⚠️  No environment variables defined in Jenkinsfile"
+            echo "Consider adding environment section for AWS credentials"
+          fi
+          
+          echo "✅ Jenkinsfile syntax checks passed"
+
+  shell-script-lint:
+    name: Shell Script Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          echo "🔍 Installing ShellCheck..."
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint Shell Scripts
+        run: |
+          echo "🔍 Linting shell scripts..."
+          
+          # Find all shell scripts
+          find . -name "*.sh" -type f | while read -r script; do
+            echo "Checking $script..."
+            shellcheck "$script" || {
+              echo "❌ ShellCheck found issues in $script"
+              exit 1
+            }
+          done
+          
+          echo "✅ All shell scripts passed linting"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Hardcoded Secrets
+        run: |
+          echo "🔍 Scanning for potential hardcoded secrets..."
+          
+          # Check for AWS access keys
+          if grep -r "AKIA[0-9A-Z]{16}" . --exclude-dir=.git; then
+            echo "❌ Found potential AWS access key in code"
+            echo "Remove hardcoded credentials and use environment variables"
+            exit 1
+          fi
+          
+          # Check for private keys
+          if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=.git; then
+            echo "❌ Found potential private key in code"
+            echo "Remove private keys and use secure credential management"
+            exit 1
+          fi
+          
+          # Check for passwords
+          if grep -r "password.*=" . --exclude-dir=.git --exclude="*.md"; then
+            echo "⚠️  Found potential password in code"
+            echo "Consider using environment variables or secret management"
+          fi
+          
+          echo "✅ Security scan completed"
+
+  infrastructure-test:
+    name: Infrastructure Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Plan Test
+        run: |
+          echo "🔍 Testing Terraform plan generation..."
+          cd platform
+          terraform init -backend=false
+          terraform plan -var="aws_region=us-east-2" -var="environment=test" -var="key_pair_name=test-key" -out=test.tfplan
+          if [ $? -ne 0 ]; then
+            echo "❌ Terraform plan failed"
+            exit 1
+          fi
+          echo "✅ Terraform plan generated successfully"
+          rm -f test.tfplan
+
+  summary:
+    name: Lint Summary
+    runs-on: ubuntu-latest
+    needs: [terraform-lint, jenkins-lint, shell-script-lint, security-scan, infrastructure-test]
+    if: always()
+    steps:
+      - name: Lint Results Summary
+        run: |
+          echo "📊 Lint Results Summary:"
+          echo "  - Terraform Lint: ${{ needs.terraform-lint.result }}"
+          echo "  - Jenkins Lint: ${{ needs.jenkins-lint.result }}"
+          echo "  - Shell Script Lint: ${{ needs.shell-script-lint.result }}"
+          echo "  - Security Scan: ${{ needs.security-scan.result }}"
+          echo "  - Infrastructure Test: ${{ needs.infrastructure-test.result }}"
+          
+          if [[ "${{ needs.terraform-lint.result }}" == "success" && 
+                "${{ needs.jenkins-lint.result }}" == "success" && 
+                "${{ needs.shell-script-lint.result }}" == "success" && 
+                "${{ needs.security-scan.result }}" == "success" && 
+                "${{ needs.infrastructure-test.result }}" == "success" ]]; then
+            echo "🎉 All lint checks passed!"
+          else
+            echo "❌ Some lint checks failed. Please review the errors above."
+            exit 1
+          fi

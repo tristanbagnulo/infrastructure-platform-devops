@@ -22,6 +22,21 @@ pipeline {
             defaultValue: 'golden-path-dev-new',
             description: 'EC2 key pair name for SSH access'
         )
+        password(
+            name: 'AWS_ACCESS_KEY_ID',
+            defaultValue: '',
+            description: 'AWS Access Key ID'
+        )
+        password(
+            name: 'AWS_SECRET_ACCESS_KEY',
+            defaultValue: '',
+            description: 'AWS Secret Access Key'
+        )
+        password(
+            name: 'AWS_SESSION_TOKEN',
+            defaultValue: '',
+            description: 'AWS Session Token (required for SSO credentials)'
+        )
     }
     
     environment {
@@ -29,6 +44,9 @@ pipeline {
         ENVIRONMENT = "${params.ENVIRONMENT}"
         KEY_PAIR_NAME = "${params.KEY_PAIR_NAME}"
         TERRAFORM_DIR = 'infrastructure-platform-devops/platform'
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN}"
     }
     
     stages {
@@ -43,11 +61,30 @@ pipeline {
                     echo "========================="
                     
                     echo "=== INSTALLING TOOLS ==="
-                    # Install jq if not available
-                    if ! command -v jq &> /dev/null; then
-                        echo "Installing jq..."
-                        apt-get update && apt-get install -y jq || echo "⚠️  Could not install jq"
-                    fi
+                    # Install required tools
+                    echo "Installing Terraform..."
+                    wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+                    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
+                    apt-get update && apt-get install -y terraform || echo "⚠️  Could not install Terraform"
+                    
+                    echo "Installing AWS CLI..."
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                    unzip awscliv2.zip && ./aws/install || echo "⚠️  Could not install AWS CLI"
+                    
+                    echo "Installing jq..."
+                    apt-get install -y jq || echo "⚠️  Could not install jq"
+                    
+                    # Configure AWS credentials
+                    echo "=== CONFIGURING AWS ==="
+                    mkdir -p ~/.aws
+                    echo "[default]" > ~/.aws/credentials
+                    echo "aws_access_key_id = ${AWS_ACCESS_KEY_ID}" >> ~/.aws/credentials
+                    echo "aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/credentials
+                    echo "aws_session_token = ${AWS_SESSION_TOKEN}" >> ~/.aws/credentials
+                    echo "[default]" > ~/.aws/config
+                    echo "region = ${AWS_REGION}" >> ~/.aws/config
+                    echo "output = json" >> ~/.aws/config
+                    echo "======================="
                     
                     # Verify required tools
                     echo "=== TOOL VERSIONS ==="
@@ -62,7 +99,22 @@ pipeline {
         stage('Checkout Platform Code') {
             steps {
                 echo '📦 Checking out platform infrastructure code...'
-                checkout scm
+                sh '''
+                    echo "=== CLONING REPOSITORY ==="
+                    if [ -d "infrastructure-platform-devops" ]; then
+                        echo "Repository already exists, updating..."
+                        cd infrastructure-platform-devops
+                        git pull origin main
+                        cd ..
+                    else
+                        echo "Cloning repository..."
+                        git clone https://github.com/tristanbagnulo/infra-project.git
+                        cd infra-project
+                        cp -r infrastructure-platform-devops ../
+                        cd ..
+                    fi
+                    echo "========================="
+                '''
                 dir(env.TERRAFORM_DIR) {
                     sh '''
                         echo "=== WORKSPACE CONTENTS ==="
